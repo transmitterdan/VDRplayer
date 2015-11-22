@@ -1,5 +1,5 @@
 # VDRplayer
-Play VDR files through UDP
+Play VDR files over IP link.
 
 Usage:
 
