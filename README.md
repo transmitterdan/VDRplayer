@@ -11,3 +11,5 @@ The IP address 127.0.0.1 is also known as localhost.
 The port number 2947 is somewhat arbitrary but it must match the UDP receiver port number.
 
 This script has been tested on Windows and Ubuntu Linux (Wily) but it should work on nearly all host platforms with a modern (=>2.7) version of Python.
+
+Download the current version of Python here: https://www.python.org/downloads/
