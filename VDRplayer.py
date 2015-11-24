@@ -64,7 +64,8 @@ def tcp(TCP_IP, TCP_PORT, filename, delay):
         lsock.listen(1)
     except socket.error as msg:
         lsock.close()
-        sys.exit()
+        print(msg)
+        return False
     try:
         print(["Server is waiting up to " + repr(tcpConnectTimeout) + "S for a connection at:", server_address]);
         conn, addr = lsock.accept()
