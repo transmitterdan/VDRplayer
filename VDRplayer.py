@@ -43,7 +43,8 @@ def udp(UDP_IP, UDP_PORT, filename, delay):
             f.close()
             sock.close()
             return True
-        except Exception:
+        except Exception as msg:
+            print(msg)
             f.close()
             sock.close()
             return False
@@ -62,15 +63,10 @@ def tcp(TCP_IP, TCP_PORT, filename, delay):
     try:
         lsock.bind(server_address)
         lsock.listen(1)
-    except socket.error as msg:
-        lsock.close()
-        print(msg)
-        return False
-    try:
         print(["Server is waiting up to " + repr(tcpConnectTimeout) + "S for a connection at:", server_address]);
         conn, addr = lsock.accept()
-    except socket.timeout:
-        print("TimeoutError - Is the client running?")
+    except socket.error as msg:
+        print(msg)
         lsock.close()
         return False
 
@@ -96,7 +92,8 @@ def tcp(TCP_IP, TCP_PORT, filename, delay):
             conn.close()
             lsock.close()
             return True
-        except Exception:
+        except Exception as msg:
+            print(msg)
             f.close()
             conn.close()
             lsock.close()
