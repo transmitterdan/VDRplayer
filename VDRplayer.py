@@ -15,10 +15,11 @@ import socket
 import sys
 import time
 
-def udp():
-    UDP_IP = sys.argv[2]
-    UDP_PORT = int(sys.argv[3])
-    filename = sys.argv[1]
+tdDefault = 0.1     # Default time between sent messages
+tcpTimeout = 5.0    # Timeout for inactive TCP socket
+tcpConnectTimeout = 60.0	# Wait 60 seconds for a connection then exit
+
+def udp(UDP_IP, UDP_PORT, filename, delay):
     print(['UDP target IP:', UDP_IP])
     print(['UDP target port:', str(UDP_PORT)])
     sock = socket.socket(socket.AF_INET, # Internet
@@ -31,7 +32,7 @@ def udp():
             if len(mess) < 1:
                 f.close()
                 sock.close()
-                sys.exit()
+                return True
 
 	    #    print(mess)
             mess = mess.strip()
@@ -41,31 +42,38 @@ def udp():
         except KeyboardInterrupt:
             f.close()
             sock.close()
-            break
+            return True
         except Exception:
             f.close()
             sock.close()
-            break
+            return False
 
-#   First pass at TCP connection. We are not sure whether to send packets
-#   on the connection recommended by the client or to send to the specified
-#   IP/port like in UDP. Both seem to work with OpenCPN but it seems more
-#   "normal" tosend the data to the address and port provided by the client
-#   so that's what we do.
+def tcp(TCP_IP, TCP_PORT, filename, delay):
+    if TCP_IP == None:
+        TCP_IP = socket.gethostname()
 
-def tcp():
-    TCP_IP = sys.argv[2]
-    TCP_PORT = int(sys.argv[3])
-    filename = sys.argv[1]
-    BUFFER_SIZE = 20
-    print(['TCP target IP:', TCP_IP])
-    print(['TCP target port:', str(TCP_PORT)])
+    server_address = (TCP_IP, TCP_PORT)
+
+#    print(['TCP target IP:%s:%d', server_address])
+#    print(['TCP target port:', str(TCP_PORT)])
     lsock = socket.socket(socket.AF_INET, # Internet
-                            socket.SOCK_STREAM) # TCP
-    lsock.bind((TCP_IP, TCP_PORT))
-    lsock.listen(1)
-    conn, addr = lsock.accept()
-    print(['Connection address:', addr]);
+                          socket.SOCK_STREAM) # TCP
+    lsock.settimeout(tcpConnectTimeout)
+    try:
+        lsock.bind(server_address)
+        lsock.listen(1)
+    except socket.error as msg:
+        lsock.close()
+        sys.exit()
+    try:
+        print(["Server is waiting up to " + repr(tcpConnectTimeout) + "S for a connection at:", server_address]);
+        conn, addr = lsock.accept()
+    except socket.timeout:
+        print("TimeoutError - Is the client running?")
+        lsock.close()
+        return False
+
+    print(['Connecting to:', addr]);
     f = open(filename, 'r')
     print("Type Ctrl-C to exit...")
     while True:
@@ -75,7 +83,7 @@ def tcp():
                 f.close()
                 conn.close()
                 lsock.close()
-                sys.exit()
+                return True
 
     #        print(mess)
             mess = mess.strip()
@@ -86,37 +94,43 @@ def tcp():
             f.close()
             conn.close()
             lsock.close()
-            break
+            return True
         except Exception:
             f.close()
             conn.close()
             lsock.close()
-            break
+            return False
 
 if len(sys.argv) < 5:
     print("USAGE:")
-    print("[python] VDRServer1.py InputFile IP_Address Port# [Sleep time [TCP]]")
+    print("[python] VDRplayer.py InputFile IP_Address Port# [Sleep time [TCP]]")
     print("Sleep time is the delay in seconds between UDP messages sent.")
     print("Sleep time defaults to 0.1 seconds")
     print("If three letter string after sleep time is TCP then TCP/IP packets are sent")
     print("else UDP packets are sent.")
     sys.exit()
 
-
 if len(sys.argv) > 4:
-    delay = float(sys.argv[4])
+    td = float(sys.argv[4])
 else:
-    delay = 0.1
+    td = tdDefault        # default time between messages
 
 if len(sys.argv) > 5:
     mode = sys.argv[5]
 else:
     mode = "UDP"
 
+rCode = False
+
 if mode.upper() == "UDP":
-    udp()
+    rCode = udp(sys.argv[2], int(sys.argv[3]), sys.argv[1], td)
 
 if mode.upper() == "TCP":
-    tcp()
+    rCode = tcp(sys.argv[2], int(sys.argv[3]),sys.argv[1], td)
+
+if rCode == True:
+    print("Exiting cleanly.")
+else:
+    print("Something went wrong, exiting.")
 
 sys.exit()
