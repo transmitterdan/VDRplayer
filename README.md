@@ -32,11 +32,20 @@ python VDRplayer.py Hakefjord.txt 127.0.0.1 10110 0.05 TCP
 
 Hakefjord.txt is a sample NMEA data file generously donated by Håkan on Cruisers Forum.
 
-The IP address 127.0.0.1 is also known as localhost and used when sending to a client 
-on the same machine. The IP address of any other machine on the network may be given.
+For UDP mode the IP address 127.0.0.1 is also known as localhost and used when sending 
+to a client on the same machine. The IP address of any other machine on the network may 
+be given.
 
-The port number 10110 is somewhat arbitrary but it is the "undocuemented standard" for 
-NMEA over IP and must match the client receiver port number.
+For TCP mode the IP address is the address of the machine running VDRplayer. It may be
+localhost or 127.0.0.1 if the client is running on the same machine. If VDRplayer is 
+running on its own machine then give the IP address of that machine that other clients 
+can reach (e.g. 192.168.1.6 assuming that is the address of the machine running 
+VDRplayer.py).
+
+The port number 10110 is somewhat arbitrary but it is the "undocumented standard" for 
+NMEA over IP and must match the client receiver port number. Any port number permitted 
+by the local firewall will work. It is best not to use well known port numbers such as 
+80, 22, etc.
 
 The time delay of 0.05 (50mS) is the delay between each line in the file.
 
