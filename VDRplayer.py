@@ -99,13 +99,18 @@ def tcp(TCP_IP, TCP_PORT, filename, delay):
             lsock.close()
             return False
 
-if len(sys.argv) < 5:
+def usage():
     print("USAGE:")
     print("[python] VDRplayer.py InputFile IP_Address Port# [Sleep time [TCP]]")
     print("Sleep time is the delay in seconds between UDP messages sent.")
     print("Sleep time defaults to 0.1 seconds")
     print("If three letter string after sleep time is TCP then TCP/IP packets are sent")
     print("else UDP packets are sent.")
+    return
+
+if len(sys.argv) < 4:
+    print(sys.argv)
+    usage()
     sys.exit()
 
 if len(sys.argv) > 4:
