@@ -24,6 +24,8 @@ def udp(UDP_IP, UDP_PORT, filename, delay):
     print(['UDP target port:', str(UDP_PORT)])
     sock = socket.socket(socket.AF_INET, # Internet
                          socket.SOCK_DGRAM) # UDP
+    # Allow UDP broadcast
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     f = open(filename, 'r')
     print("Type Ctrl-C to exit...")
     while True :
