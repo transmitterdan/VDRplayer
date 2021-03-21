@@ -30,8 +30,7 @@ options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:s:ut', ['dest=', 'h
 mode = 'UDP'
 dest = 'localhost'
 host = socket.gethostname()
-UDPport = 10110
-TCPport = 2947
+IPport = 10110
 td = 0.1
 
 def openFile(fName):
@@ -169,6 +168,7 @@ def tcp(Host, Port, fName, Delay):
             if f:
                 f.close()
             # End if
+            print("End of message file reached.", file=sys.stderr)
             return True
         except:
             lsock.close()
@@ -217,20 +217,19 @@ def usage():
 # Pick up all commandline options
 try:
     for opt, arg in options:
-        if opt in ('-d', '--dest'):
+        if opt.lower() in ('-d', '--dest'):
             dest = arg
-        elif opt in ('-p', '--port'):
-            UDPport = int(arg)
-            TCPport = UDPport
-        elif opt in ('-s', '--sleep'):
+        elif opt.lower() in ('-p', '--port'):
+            IPport = int(arg)
+        elif opt.lower() in ('-s', '--sleep'):
             td = float(arg)
-        elif opt in ('-u', '--UDP'):
+        elif opt.lower() in ('-u', '--udp'):
             mode = 'UDP'
-        elif opt in ('-t', '--TCP'):
+        elif opt.lower() in ('-t', '--tcp'):
             mode = 'TCP'
         elif opt in ('-o', '--host'):
             host = arg
-        elif opt in ('-h', '--help'):
+        elif opt.lower() in ('-h', '--help'):
             usage()
             sys.exit()
         else:
@@ -248,10 +247,10 @@ except getopt.GetoptError as msg:
 rCode = False
 
 if mode.upper() == "UDP":
-    rCode = udp(dest, UDPport, remainder[0], td)
+    rCode = udp(dest, IPport, remainder[0], td)
 elif mode.upper() == "TCP":
     Host = socket.gethostbyname(host)
-    rCode = tcp(Host, TCPport, remainder[0], td)
+    rCode = tcp(Host, IPport, remainder[0], td)
 else:
     print(['Unknown communication link type', mode])
 # End if
