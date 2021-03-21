@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python
+﻿#!/usr/bin/env python3
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 3 of the License, or
@@ -13,129 +13,252 @@
 
 import socket
 import sys
+
+assert sys.version_info >= (3, 3), "Must run in Python 3.3"
+
+import selectors
+import types
 import time
+import string
+import getopt
 
-tdDefault = 0.1     # Default time between sent messages
-tcpTimeout = 5.0    # Timeout for inactive TCP socket
-tcpConnectTimeout = 60.0	# Wait 60 seconds for a connection then exit
 
-def udp(UDP_IP, UDP_PORT, filename, delay):
-    print(['UDP target IP:', UDP_IP])
-    print(['UDP target port:', str(UDP_PORT)])
-    sock = socket.socket(socket.AF_INET, # Internet
-                         socket.SOCK_DGRAM) # UDP
-    # Allow UDP broadcast
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    f = open(filename, 'r')
-    print("Type Ctrl-C to exit...")
-    while True :
-        try:
-            mess = f.readline()
-            if len(mess) < 1:
-                f.close()
-                sock.close()
-                return True
+# Command line options
+options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:s:ut', ['dest=', 'help', 'host=', 'port=','sleep=', 'UDP','TCP'])
 
-	    #    print(mess)
-            mess = mess.strip()
-            mess = mess + u"\r\n"
-            sock.sendto(mess.encode("utf-8"),(UDP_IP, UDP_PORT))
-            time.sleep(delay)
-        except KeyboardInterrupt:
-            f.close()
-            sock.close()
-            return True
-        except Exception as msg:
-            print(msg)
-            f.close()
-            sock.close()
-            return False
+# Set default options
+mode = 'UDP'
+dest = 'localhost'
+host = socket.gethostname()
+UDPport = 10110
+TCPport = 2947
+td = 0.1
 
-def tcp(TCP_IP, TCP_PORT, filename, delay):
-    if TCP_IP == None:
-        TCP_IP = socket.gethostname()
+def openFile(fName):
+    if fName:
+        f = open(fName,'r')
+    else:
+        f = sys.stdin
+    # End if
+    if not f:
+        raise FileExistsError()
+    # End if
+    return f
+# End openFile()
 
-    server_address = (TCP_IP, TCP_PORT)
-
-#    print(['TCP target IP:%s:%d', server_address])
-#    print(['TCP target port:', str(TCP_PORT)])
-    lsock = socket.socket(socket.AF_INET, # Internet
-                          socket.SOCK_STREAM) # TCP
-    lsock.settimeout(tcpConnectTimeout)
-    try:
-        lsock.bind(server_address)
-        lsock.listen(1)
-        print(["Server is waiting up to " + repr(tcpConnectTimeout) + "S for a connection at:", server_address]);
-        conn, addr = lsock.accept()
-    except socket.error as msg:
-        print(msg)
-        lsock.close()
+def getMessage(f, Delay):
+    time.sleep(Delay)
+    if f:
+        mess = f.readline()
+    else:
+        print("End of file reached...")
         return False
+    # End if
+    if len(mess) == 0:
+        raise EOFError()
+    # End if
+    mess = mess.strip()
+    mess = mess + u"\r\n"
+    return(mess.encode("utf-8"))
+# End getMessage()
 
-    print(['Connecting to:', addr]);
-    f = open(filename, 'r')
-    print("Type Ctrl-C to exit...")
+def udp(Dest, Port, Fname, Delay):
+    try:
+        f = openFile(Fname)
+        print(['UDP target IP:', Dest])
+        print(['UDP target port:', str(Port)])
+        sock = socket.socket(socket.AF_INET, # Internet
+                            socket.SOCK_DGRAM) # UDP
+        # Allow UDP broadcast
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        print("Type Ctrl-C to exit...")
+        while True :
+            sock.sendto(getMessage(f, Delay),(Dest, Port))
+        # End while
+    except KeyboardInterrupt:
+        f.close()
+        sock.close()
+        return True
+    # End except
+    except EOFError:
+        f.close()
+        sock.close()
+        return True
+    # End except
+    except Exception:
+        f.close()
+        sock.close()
+        raise
+# End udp()
+
+## Now we create the TCP version.
+# It's more complex because we want to
+# accept multiple client connections
+# simultaneously.
+
+sel = selectors.DefaultSelector()
+
+def accept_wrapper(sock):
+    conn, addr = sock.accept()
+    conn.setblocking(False)
+    data = types.SimpleNamespace(addr=addr, outb=b"")
+    events = selectors.EVENT_READ | selectors.EVENT_WRITE
+    sel.register(conn, events, data=data)
+    print("Accepted connection from client: ", data.addr)
+# End accept_wrapper()
+
+def service_connection(key, mask):
+    sock = key.fileobj
+    data = key.data
+    if mask & selectors.EVENT_READ:
+        recv_data = sock.recv(1024)  # Should be ready to read
+        if not recv_data:
+            print("Closing connection to client:", data.addr)
+            sel.unregister(sock)
+            sock.close()
+            return
+        # End if
+    # End if
+    if mask & selectors.EVENT_WRITE:
+        if data.outb:
+            sent = sock.send(data.outb)  # Should be ready to write
+            data.outb = data.outb[sent:]
+        # End if
+    # End if
+# End service_connection()
+
+def tcp(Host, Port, fName, Delay):
+    f = openFile(fName)
+    server_address = (Host, Port)
+    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    lsock.bind(server_address)
+    lsock.listen()
+    listening = lsock.getsockname()
+    print("Server at address: " + str(listening[0]) + " is listening on port: " + str(listening[1]))
+    lsock.setblocking(False)
+    sel.register(lsock, selectors.EVENT_READ, data=None)
     while True:
         try:
-            mess = f.readline()
-            if len(mess) < 1:
-                f.close()
-                conn.close()
-                lsock.close()
-                return True
-
-    #        print(mess)
-            mess = mess.strip()
-            mess = mess + u"\r\n"
-            conn.send(mess.encode("utf-8"))
-            time.sleep(delay)
+            events = sel.select()
+            for key, mask in events:
+                if key.data is None:
+                    accept_wrapper(key.fileobj)
+                else:
+                    mess = getMessage(f, Delay)
+                    if mess:
+                        key.data.outb += mess
+                        try:
+                            service_connection(key, mask)
+                        except ConnectionAbortedError:
+                            print("ConnectionAbortedError: Attempting to close connection to client:", key.data.addr)
+                            sock = key.fileobj
+                            sel.unregister(sock)
+                            sock.close()
+                        # End try
+                    # End if
+                # End if
+            # End for
         except KeyboardInterrupt:
-            f.close()
-            conn.close()
             lsock.close()
+            if f:
+                f.close()
+            # End if
             return True
-        except Exception as msg:
-            print(msg)
-            f.close()
-            conn.close()
+        except EOFError:
             lsock.close()
-            return False
+            if f:
+                f.close()
+            # End if
+            return True
+        except:
+            lsock.close()
+            if f:
+                f.close()
+            # End if
+            raise
+        # End try
+    # End while
+# End tcp()
 
 def usage():
     print("USAGE:")
-    print("[python] VDRplayer.py InputFile IP_Address Port# [Sleep time [TCP]]")
-    print("Sleep time is the delay in seconds between UDP messages sent.")
-    print("Sleep time defaults to 0.1 seconds")
-    print("If three letter string after sleep time is TCP then TCP/IP packets are sent")
-    print("else UDP packets are sent.")
+    print("[python3] VDRplayer.py [--port=Port#] [--sleep=Sleep time] [--TCP --host=localhost | --UDP --dest=UDP_IP_Address] InputFile")
+    print("")
+    print("Commandline options:")
+    print("")
+    print("-d, --dest=IP_Address  UDP destination IP address.")
+    print("                       Default will resolve to 'localhost'")
+    print("")
+    print("-h, --help             print this message.")
+    print("")
+    print("-o, --host=IP_Address  TCP server IP address.")
+    print("                       This must resolve to a valid IP address on this computer.")
+    print("")
+    print("-p, --port=#           optional communication port number.")
+    print("                       Any valid port is accepted.")
+    print("")
+    print("-s, --sleep=#.#        optional seconds delay between packets.")
+    print("                       default is 0.1 seconds.")
+    print("")
+    print("-t, --TCP              create TCP server on primary IP address.")
+    print("                       Default will resolve to local machine name.")
+    print("                       Specify IP address using --host option to override default.")
+    print("")
+    print("-u, --UDP              create connectionless UDP link.")
+    print("                       UDP is the default if no connection type specified.")
+    print("                       Specify destination IP address using --dest option.")
+    print("")
+    print("InputFile              Name of file containing NMEA message strings.")
+    print("                       If no FILE is given then default is to read")
+    print("                       input text from STDIN.")
     return
+# End usage()
 
-if len(sys.argv) < 4:
-    print(sys.argv)
-    usage()
-    sys.exit()
+# Pick up all commandline options
+try:
+    for opt, arg in options:
+        if opt in ('-d', '--dest'):
+            dest = arg
+        elif opt in ('-p', '--port'):
+            UDPport = int(arg)
+            TCPport = UDPport
+        elif opt in ('-s', '--sleep'):
+            td = float(arg)
+        elif opt in ('-u', '--UDP'):
+            mode = 'UDP'
+        elif opt in ('-t', '--TCP'):
+            mode = 'TCP'
+        elif opt in ('-o', '--host'):
+            host = arg
+        elif opt in ('-h', '--help'):
+            usage()
+            sys.exit()
+        else:
+            print("Unknown option: ", opt)
+            usage()
+            sys.exit(2)
+        # End if
+    # End for
+except getopt.GetoptError as msg:
+    print(msg)
+    sys.exit(2)
+# End try
 
-if len(sys.argv) > 4:
-    td = float(sys.argv[4])
-else:
-    td = tdDefault        # default time between messages
-
-if len(sys.argv) > 5:
-    mode = sys.argv[5]
-else:
-    mode = "UDP"
-
+# Main program
 rCode = False
 
 if mode.upper() == "UDP":
-    rCode = udp(sys.argv[2], int(sys.argv[3]), sys.argv[1], td)
-
-if mode.upper() == "TCP":
-    rCode = tcp(sys.argv[2], int(sys.argv[3]),sys.argv[1], td)
-
+    rCode = udp(dest, UDPport, remainder[0], td)
+elif mode.upper() == "TCP":
+    Host = socket.gethostbyname(host)
+    rCode = tcp(Host, TCPport, remainder[0], td)
+else:
+    print(['Unknown communication link type', mode])
+# End if
 if rCode == True:
     print("Exiting cleanly.")
+    sys.exit(0)
 else:
     print("Something went wrong, exiting.")
-
-sys.exit()
+    sys.exit(1)
+# End if
