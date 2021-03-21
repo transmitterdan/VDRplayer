@@ -30,7 +30,7 @@ options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:s:ut', ['dest=', 'h
 mode = 'UDP'
 dest = 'localhost'
 host = socket.gethostname()
-IPport = 10110
+IPport = None
 td = 0.1
 
 def openFile(fName):
@@ -63,6 +63,9 @@ def getMessage(f, Delay):
 
 def udp(Dest, Port, Fname, Delay):
     try:
+        if Port == None:
+            Port = 10110
+        # End if
         f = openFile(Fname)
         print(['UDP target IP:', Dest])
         print(['UDP target port:', str(Port)])
@@ -127,6 +130,9 @@ def service_connection(key, mask):
 # End service_connection()
 
 def tcp(Host, Port, fName, Delay):
+    if Port == None:
+        Port = 2947
+    # End if
     f = openFile(fName)
     server_address = (Host, Port)
     lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
