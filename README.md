@@ -36,4 +36,8 @@ The time delay of 0.05 (50mS) is the delay between each line in the file.
 
 This script has been tested on Windows and Ubuntu Linux (Wily) but it should work on nearly all host platforms with a modern (=>2.7) version of Python. Works with Python 3.4.
 
-Download the current version of Python here: https://www.python.org/downloads/ or on Ubuntu: sudo apt-get install python3
+Download the current version of Python here: https://www.python.org/downloads/ or on Ubuntu: sudo apt-get install python[3]
+
+There are other NMEA data files available on the internet.  The excellent NavMonPC program by Paul Elliot and Dirk Lison uses the same file format.  They provide example data files that work with VDRplayer here: http://navmonpc.com/downloads.html
+
+If you find other online sources of sample NMEA data files please submit a PR to this README.md.
