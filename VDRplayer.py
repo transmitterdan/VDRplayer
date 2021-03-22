@@ -24,7 +24,8 @@ import getopt
 
 
 # Command line options
-options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:s:ut', ['dest=', 'help', 'host=', 'port=','sleep=', 'UDP','TCP'])
+options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:ut',
+ ['dest=', 'help', 'host=', 'port=', 'repeat=', 'sleep=', 'UDP','TCP'])
 
 # Set default options
 mode = 'UDP'
@@ -32,6 +33,7 @@ dest = 'localhost'
 host = socket.gethostname()
 IPport = None
 td = 0.1
+Repeat = 1
 
 def openFile(fName):
     if fName:
@@ -61,36 +63,42 @@ def getMessage(f, Delay):
     return(mess.encode("utf-8"))
 # End getMessage()
 
-def udp(Dest, Port, Fname, Delay):
-    try:
-        if Port == None:
-            Port = 10110
-        # End if
-        f = openFile(Fname)
-        print(['UDP target IP:', Dest])
-        print(['UDP target port:', str(Port)])
-        sock = socket.socket(socket.AF_INET, # Internet
-                            socket.SOCK_DGRAM) # UDP
-        # Allow UDP broadcast
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        print("Type Ctrl-C to exit...")
-        while True :
-            sock.sendto(getMessage(f, Delay),(Dest, Port))
-        # End while
-    except KeyboardInterrupt:
-        f.close()
-        sock.close()
-        return True
-    # End except
-    except EOFError:
-        f.close()
-        sock.close()
-        return True
-    # End except
-    except Exception:
-        f.close()
-        sock.close()
-        raise
+def udp(Dest, Port, fName, Delay, Repeat):
+    if Port == None:
+        Port = 10110
+    # End if
+    f = openFile(fName)
+    print(['UDP target IP:', Dest])
+    print(['UDP target port:', str(Port)])
+    sock = socket.socket(socket.AF_INET, # Internet
+                        socket.SOCK_DGRAM) # UDP
+    # Allow UDP broadcast
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    print("Type Ctrl-C to exit...")
+    while True:
+        try:
+            while True :
+                sock.sendto(getMessage(f, Delay),(Dest, Port))
+            # End while
+        except KeyboardInterrupt:
+            f.close()
+            sock.close()
+            return True
+        # End except
+        except EOFError:
+            Repeat -= 1
+            if Repeat > 0:
+                f.seek(0)
+                print("Repeating file...")
+                continue
+            f.close()
+            sock.close()
+            return True
+        # End except
+        except Exception:
+            f.close()
+            sock.close()
+            raise
 # End udp()
 
 ## Now we create the TCP version.
@@ -129,7 +137,7 @@ def service_connection(key, mask):
     # End if
 # End service_connection()
 
-def tcp(Host, Port, fName, Delay):
+def tcp(Host, Port, fName, Delay, Repeat):
     if Port == None:
         Port = 2947
     # End if
@@ -163,18 +171,21 @@ def tcp(Host, Port, fName, Delay):
                     # End if
                 # End if
             # End for
+        except EOFError:
+            Repeat -= 1
+            if Repeat > 0:
+                f.seek(0)
+                print("Repeating file...")
+                continue
+            f.close()
+            lsock.close()
+            return True
+        # End except
         except KeyboardInterrupt:
             lsock.close()
             if f:
                 f.close()
             # End if
-            return True
-        except EOFError:
-            lsock.close()
-            if f:
-                f.close()
-            # End if
-            print("End of message file reached.", file=sys.stderr)
             return True
         except:
             lsock.close()
@@ -201,6 +212,9 @@ def usage():
     print("                       This must resolve to a valid IP address on this computer.")
     print("")
     print("-p, --port=#           optional communication port number.")
+    print("                       Any valid port is accepted.")
+    print("")
+    print("-r, --repeat=#         optional number of times to reread input file.")
     print("                       Any valid port is accepted.")
     print("")
     print("-s, --sleep=#.#        optional seconds delay between packets.")
@@ -235,6 +249,9 @@ try:
             mode = 'TCP'
         elif opt in ('-o', '--host'):
             host = arg
+        elif opt in ('-r', '--repeat'):
+            if len(arg) > 0:
+                Repeat = int(arg)
         elif opt.lower() in ('-h', '--help'):
             usage()
             sys.exit()
@@ -253,10 +270,10 @@ except getopt.GetoptError as msg:
 rCode = False
 
 if mode.upper() == "UDP":
-    rCode = udp(dest, IPport, remainder[0], td)
+    rCode = udp(dest, IPport, remainder[0], td, Repeat)
 elif mode.upper() == "TCP":
     Host = socket.gethostbyname(host)
-    rCode = tcp(Host, IPport, remainder[0], td)
+    rCode = tcp(Host, IPport, remainder[0], td, Repeat)
 else:
     print(['Unknown communication link type', mode])
 # End if
