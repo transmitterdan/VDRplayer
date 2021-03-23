@@ -11,29 +11,16 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import socket
 import sys
 
 assert sys.version_info >= (3, 3), "Must run in Python 3.3"
 
+import socket
 import selectors
 import types
 import time
 import string
 import getopt
-
-
-# Command line options
-options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:ut',
- ['dest=', 'help', 'host=', 'port=', 'repeat=', 'sleep=', 'UDP','TCP'])
-
-# Set default options
-mode = 'UDP'
-dest = 'localhost'
-host = socket.gethostname()
-IPport = None
-td = 0.1
-Repeat = 1
 
 def openFile(fName):
     if fName:
@@ -64,12 +51,9 @@ def getMessage(f, Delay):
 # End getMessage()
 
 def udp(Dest, Port, fName, Delay, Repeat):
-    if Port == None:
-        Port = 10110
-    # End if
     f = openFile(fName)
-    print(['UDP target IP:', Dest])
-    print(['UDP target port:', str(Port)])
+    print("  UDP target IP: " + Dest)
+    print("UDP target port: " + str(Port))
     sock = socket.socket(socket.AF_INET, # Internet
                         socket.SOCK_DGRAM) # UDP
     # Allow UDP broadcast
@@ -234,6 +218,18 @@ def usage():
     return
 # End usage()
 
+# Command line options spec
+options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:ut',
+ ['dest=', 'help', 'host=', 'port=', 'repeat=', 'sleep=', 'UDP','TCP'])
+
+# Set default options
+mode = 'UDP'
+dest = None
+host = None
+port = None
+td = 0.1
+Repeat = 1
+
 # Pick up all commandline options
 try:
     for opt, arg in options:
@@ -267,15 +263,23 @@ except getopt.GetoptError as msg:
 # End try
 
 # Main program
-rCode = False
 
 if mode.upper() == "UDP":
+    if dest == None:
+        dest = socket.gethostbyname(socket.gethostname())
+    if port == None:
+        port = 10110
     rCode = udp(dest, IPport, remainder[0], td, Repeat)
 elif mode.upper() == "TCP":
+    if host == None:
+        host = socket.gethostbyname(socket.gethostname())
+    if port == None:
+        port = 2947
     Host = socket.gethostbyname(host)
     rCode = tcp(Host, IPport, remainder[0], td, Repeat)
 else:
-    print(['Unknown communication link type', mode])
+    usage()
+    rCode = False
 # End if
 if rCode == True:
     print("Exiting cleanly.")

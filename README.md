@@ -10,7 +10,7 @@ Commandline options:
 
 *  -d IP_Address | --dest=IP_Address  UDP destination IP address. Default will resolve to 'localhost'
 *  -o IP_Address | --host=IP_Address  TCP server IP address. This must resolve to a valid IP address on this computer.
-*      NOTE: These two options are mutually exclusive
+*      NOTE: The dest and host options are mutually exclusive
 
 *  -p # | --port=#  optional communication port number. Any valid port is accepted.
 
@@ -21,6 +21,7 @@ Commandline options:
 *  -t, --TCP  create TCP server on primary IP address.  Default will resolve to local machine primary IP address. Specify IP address using --host option to override default.
 
 *  -u, --UDP create connectionless UDP link. UDP is the default if no connection type specified. Specify destination IP address using --dest option.
+The TCP and UDP options are mutually exclusive.
 
 *  InputFile  Name of file containing NMEA message strings. If no FILE is given then default is to read input text from STDIN.
 
