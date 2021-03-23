@@ -2,28 +2,30 @@
 Play VDR files over IP link.
 
 USAGE:
+```
 [python3] VDRplayer.py [--port=Port#] [--sleep=Sleep time] [--TCP --host=localhost | --UDP --dest=UDP_IP_Address] InputFile
 
 Commandline options:
 
-*  -h | --help  print this message.
+  -h | --help - print this message.
 
-*  -d IP_Address | --dest=IP_Address  UDP destination IP address. Default will resolve to 'localhost'
-*  -o IP_Address | --host=IP_Address  TCP server IP address. This must resolve to a valid IP address on this computer.
-*      NOTE: The dest and host options are mutually exclusive
+  -d IP_Address | --dest=IP_Address - UDP destination IP address. Default will resolve to 'localhost'
+  -o IP_Address | --host=IP_Address - TCP server IP address. This must resolve to a valid IP address on this computer.
+      NOTE: The dest and host options are mutually exclusive
 
-*  -p # | --port=#  optional communication port number. Any valid port is accepted.
+  -p # | --port=# - optional communication port number. Any valid port is accepted.
 
-*  -r # | --repeat=#  optional number of times to reread input file. Any valid port is accepted.
+  -r # | --repeat=# - optional number of times to reread input file. Any valid port is accepted.
 
-*  -s #.# | --sleep=#.#  optional seconds delay between packets. Default is 0.1 seconds.
+  -s #.# | --sleep=#.# - optional seconds delay between packets. Default is 0.1 seconds.
 
-*  -t, --TCP  create TCP server on primary IP address.  Default will resolve to local machine primary IP address. Specify IP address using --host option to override default.
+  -t, --TCP - create TCP server on primary IP address.  Default will resolve to local machine primary IP address. Specify IP address using --host option to override default.
 
-*  -u, --UDP create connectionless UDP link. UDP is the default if no connection type specified. Specify destination IP address using --dest option.
-The TCP and UDP options are mutually exclusive.
+  -u, --UDP - create connectionless UDP link. UDP is the default if no connection type specified. Specify destination IP address using --dest option.
+      NOTE: The TCP and UDP options are mutually exclusive.
 
-*  InputFile  Name of file containing NMEA message strings. If no FILE is given then default is to read input text from STDIN.
+  InputFile - Name of file containing NMEA message strings. If no FILE is given then default is to read input text from STDIN.
+```
 
 VDRplayer is a Python script that will read a text file of lines. Each line is read and sent via UDP or TCP to the IP and port address provided on the command line. Any whitespace at the beginning or end of each line is stripped and \r\n is appended before sending over the link. This is useful for sending previously recorded Voyage Data Recorder files to an NMEA compatible chart plotter such as OpenCPN.
 
