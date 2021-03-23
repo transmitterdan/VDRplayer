@@ -31,7 +31,12 @@ VDRplayer is a Python script that will read a text file of lines. Each line is r
 
 * **Example:**
 
-python3 VDRplayer.py Hakefjord.txt --host=127.0.0.1 --port=10110 --sleep=0.05 --TCP
+```
+user@Linux:~/VDRplayer$ python3 VDRplayer.py Hakefjord.txt --dest=127.0.0.1 --port=10110 --sleep=0.05
+  UDP target IP: 127.0.1.1
+UDP target port: 10110
+Type Ctrl-C to exit...
+```
 
 Hakefjord.txt is a sample NMEA data file generously donated by Håkan on Cruisers Forum.
 
