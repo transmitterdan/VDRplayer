@@ -34,8 +34,9 @@ def openFile(fName):
     return f
 # End openFile()
 
-def getMessage(f, Delay):
-    time.sleep(Delay)
+def getNextMessage(f, Delay):
+    if Delay > 0:
+        time.sleep(Delay)
     if f:
         mess = f.readline()
     else:
@@ -43,12 +44,12 @@ def getMessage(f, Delay):
         return False
     # End if
     if len(mess) == 0:
-        raise EOFError()
+        return False
     # End if
     mess = mess.strip()
     mess = mess + u"\r\n"
     return(mess.encode("utf-8"))
-# End getMessage()
+# End getNextMessage()
 
 def udp(Dest, Port, fName, Delay, Repeat):
     f = openFile(fName)
@@ -59,30 +60,29 @@ def udp(Dest, Port, fName, Delay, Repeat):
     # Allow UDP broadcast
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     print("Type Ctrl-C to exit...")
-    while True:
-        try:
-            while True :
-                sock.sendto(getMessage(f, Delay),(Dest, Port))
-            # End while
-        except KeyboardInterrupt:
+    try:
+        while True :
+            nextMessage = getNextMessage(f, Delay)
+            if not nextMessage:
+                Repeat -= 1
+                if Repeat > 0:
+                    f.seek(0)
+                    print("Repeating file...")
+                    continue
+                return True
+            # End if
+            sock.sendto(nextMessage,(Dest, Port))
+        # End while
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt.")
+        return True
+    # End except
+    finally:
+        sock.close()
+        if f:
             f.close()
-            sock.close()
-            return True
-        # End except
-        except EOFError:
-            Repeat -= 1
-            if Repeat > 0:
-                f.seek(0)
-                print("Repeating file...")
-                continue
-            f.close()
-            sock.close()
-            return True
-        # End except
-        except Exception:
-            f.close()
-            sock.close()
-            raise
+        # End if
+    # End while
 # End udp()
 
 ## Now we create the TCP version.
@@ -106,8 +106,9 @@ def service_connection(key, mask):
     data = key.data
     if mask & selectors.EVENT_READ:
         recv_data = sock.recv(1024)  # Should be ready to read
+        print(str(len(recv_data)) + " characters received...")
         if not recv_data:
-            print("Closing connection to client:", data.addr)
+            print("Closing connection to client:", sock)
             sel.unregister(sock)
             sock.close()
             return
@@ -125,60 +126,69 @@ def tcp(Host, Port, fName, Delay, Repeat):
     if Port == None:
         Port = 2947
     # End if
+    lsock = False
     f = openFile(fName)
     server_address = (Host, Port)
     lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     lsock.bind(server_address)
-    lsock.listen()
+    lsock.listen(1)
     listening = lsock.getsockname()
     print("Server at address: " + str(listening[0]) + " is listening on port: " + str(listening[1]))
     lsock.setblocking(False)
     sel.register(lsock, selectors.EVENT_READ, data=None)
-    while True:
-        try:
+    try:
+        while True:
+            mess = getNextMessage(f, Delay)
+            if not mess:
+                Repeat -= 1
+                if Repeat > 0:
+                    f.seek(0)
+                    print("Repeating file...")
+                    continue
+                else:
+                    return True
+                # End if
+            # End if
             events = sel.select()
             for key, mask in events:
                 if key.data is None:
                     accept_wrapper(key.fileobj)
                 else:
-                    mess = getMessage(f, Delay)
-                    if mess:
+                    try:
                         key.data.outb += mess
-                        try:
-                            service_connection(key, mask)
-                        except ConnectionAbortedError:
-                            print("ConnectionAbortedError: Attempting to close connection to client:", key.data.addr)
-                            sock = key.fileobj
-                            sel.unregister(sock)
-                            sock.close()
-                        # End try
-                    # End if
+                        service_connection(key, mask)
+                    except ConnectionError as CE:
+                        print(CE)
+                        print("ConnectionError: Attempting to close connection to client:", key.data.addr)
+                        sock = key.fileobj
+                        sel.unregister(sock)
+                        sock.close()
+                    # End try
                 # End if
             # End for
-        except EOFError:
-            Repeat -= 1
-            if Repeat > 0:
-                f.seek(0)
-                print("Repeating file...")
-                continue
+        # End while
+    # End try
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt...")
+        return True
+
+    except:
+        print("Exception...")
+        # Kill off the listening socket
+        # The server sockets will die eventually
+        if lsock:
+            lsock.close()
+        if f:
             f.close()
-            lsock.close()
-            return True
-        # End except
-        except KeyboardInterrupt:
-            lsock.close()
-            if f:
-                f.close()
-            # End if
-            return True
-        except:
-            lsock.close()
-            if f:
-                f.close()
-            # End if
-            raise
-        # End try
-    # End while
+        # End if
+        raise
+
+    finally:
+        lsock.close()
+        if f:
+            f.close()
+        # End if
+    # End try
 # End tcp()
 
 def usage():
@@ -229,6 +239,7 @@ host = None
 port = None
 td = 0.1
 Repeat = 1
+rCode = False
 
 # Pick up all commandline options
 try:
@@ -263,7 +274,6 @@ except getopt.GetoptError as msg:
 # End try
 
 # Main program
-
 if mode.upper() == "UDP":
     if dest == None:
         dest = socket.gethostbyname(socket.gethostname())
@@ -279,7 +289,6 @@ elif mode.upper() == "TCP":
     rCode = tcp(Host, IPport, remainder[0], td, Repeat)
 else:
     usage()
-    rCode = False
 # End if
 if rCode == True:
     print("Exiting cleanly.")

@@ -10,7 +10,7 @@
                 "WIMDA.txt",
                 "--dest=192.168.0.192",
                 "--UDP",
-                "--repeat=5",
+                "--repeat=2",
                 "--port=10110",
                 "--sleep=0.07"
             ]
@@ -25,7 +25,7 @@
                 "PacCupStartLong.txt",
                 "--host=192.168.0.192",
                 "--TCP",
-                "--repeat=2",
+                "--repeat=5",
                 "--port=2947",
                 "--sleep=0.07"
             ]
