@@ -126,16 +126,17 @@ def tcp(Host, Port, fName, Delay, Repeat):
     if Port == None:
         Port = 2947
     # End if
-    lsock = False
+    clients = []
+    Server = False
     f = openFile(fName)
     server_address = (Host, Port)
-    lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    lsock.bind(server_address)
-    lsock.listen(1)
-    listening = lsock.getsockname()
+    Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    Server.bind(server_address)
+    Server.listen(1)
+    listening = Server.getsockname()
     print("Server at address: " + str(listening[0]) + " is listening on port: " + str(listening[1]))
-    lsock.setblocking(False)
-    sel.register(lsock, selectors.EVENT_READ, data=None)
+    Server.setblocking(False)
+    sel.register(Server, selectors.EVENT_READ, data=None)
     try:
         while True:
             mess = getNextMessage(f, Delay)
@@ -153,6 +154,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
             for key, mask in events:
                 if key.data is None:
                     accept_wrapper(key.fileobj)
+                    clients.append(key.fileobj)
                 else:
                     try:
                         key.data.outb += mess
@@ -161,6 +163,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
                         print(CE)
                         print("ConnectionError: Attempting to close connection to client:", key.data.addr)
                         sock = key.fileobj
+                        clients.remove(sock)
                         sel.unregister(sock)
                         sock.close()
                     # End try
@@ -176,15 +179,20 @@ def tcp(Host, Port, fName, Delay, Repeat):
         print("Exception...")
         # Kill off the listening socket
         # The server sockets will die eventually
-        if lsock:
-            lsock.close()
+        for Client in clients:
+            Client.close()
+        Server.close()
+        if Server:
+            Server.close()
         if f:
             f.close()
         # End if
         raise
 
     finally:
-        lsock.close()
+        for Client in clients:
+            Client.close()
+        Server.close()
         if f:
             f.close()
         # End if
