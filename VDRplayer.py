@@ -131,7 +131,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
     server_address = (Host, Port)
     Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     Server.bind(server_address)
-    Server.listen(1)
+    Server.listen(5)
     listening = Server.getsockname()
     print("Server at address: " + str(listening[0]) + " is listening on port: " + str(listening[1]))
     Server.setblocking(False)
