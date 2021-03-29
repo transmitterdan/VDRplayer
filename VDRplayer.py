@@ -128,7 +128,6 @@ def tcp(Host, Port, fName, Delay, Repeat):
     # End if
     clients = []
     Server = False
-    f = openFile(fName)
     server_address = (Host, Port)
     Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     Server.bind(server_address)
@@ -138,6 +137,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
     Server.setblocking(False)
     sel.register(Server, selectors.EVENT_READ, data=None)
     try:
+        f = openFile(fName)
         while True:
             mess = getNextMessage(f, Delay)
             if not mess:
