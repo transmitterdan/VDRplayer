@@ -177,13 +177,10 @@ def tcp(Host, Port, fName, Delay, Repeat):
 
     except:
         print("Exception...")
-        # Kill off the listening socket
-        # The server sockets will die eventually
+        # Kill off the sockets
         for Client in clients:
             Client.close()
         Server.close()
-        if Server:
-            Server.close()
         if f:
             f.close()
         # End if
@@ -236,72 +233,79 @@ def usage():
     return
 # End usage()
 
-# Command line options spec
-options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:ut',
- ['dest=', 'help', 'host=', 'port=', 'repeat=', 'sleep=', 'UDP','TCP'])
+def main():
+    # Command line options spec
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:ut',
+    ['dest=', 'help', 'host=', 'port=', 'repeat=', 'sleep=', 'UDP','TCP'])
 
-# Set default options
-mode = 'UDP'
-dest = None
-host = None
-port = None
-td = 0.1
-Repeat = 1
-rCode = False
+    # Set default options
+    mode = 'UDP'
+    dest = None
+    host = None
+    port = None
+    td = 0.1
+    Repeat = 1
+    rCode = False
 
-# Pick up all commandline options
-try:
-    for opt, arg in options:
-        if opt.lower() in ('-d', '--dest'):
-            dest = arg
-        elif opt.lower() in ('-p', '--port'):
-            IPport = int(arg)
-        elif opt.lower() in ('-s', '--sleep'):
-            td = float(arg)
-        elif opt.lower() in ('-u', '--udp'):
-            mode = 'UDP'
-        elif opt.lower() in ('-t', '--tcp'):
-            mode = 'TCP'
-        elif opt in ('-o', '--host'):
-            host = arg
-        elif opt in ('-r', '--repeat'):
-            if len(arg) > 0:
-                Repeat = int(arg)
-        elif opt.lower() in ('-h', '--help'):
-            usage()
-            sys.exit()
-        else:
-            print("Unknown option: ", opt)
-            usage()
-            sys.exit(2)
-        # End if
-    # End for
-except getopt.GetoptError as msg:
-    print(msg)
-    sys.exit(2)
-# End try
+    # Pick up all commandline options
+    try:
+        for opt, arg in options:
+            if opt.lower() in ('-d', '--dest'):
+                dest = arg
+            elif opt.lower() in ('-p', '--port'):
+                IPport = int(arg)
+            elif opt.lower() in ('-s', '--sleep'):
+                td = float(arg)
+            elif opt.lower() in ('-u', '--udp'):
+                mode = 'UDP'
+            elif opt.lower() in ('-t', '--tcp'):
+                mode = 'TCP'
+            elif opt in ('-o', '--host'):
+                host = arg
+            elif opt in ('-r', '--repeat'):
+                if len(arg) > 0:
+                    Repeat = int(arg)
+            elif opt.lower() in ('-h', '--help'):
+                usage()
+                sys.exit()
+            else:
+                print("Unknown option: ", opt)
+                usage()
+                sys.exit(2)
+            # End if
+        # End for
+    except getopt.GetoptError as msg:
+        print(msg)
+        sys.exit(2)
+    # End try
 
-# Main program
-if mode.upper() == "UDP":
-    if dest == None:
-        dest = socket.gethostbyname(socket.gethostname())
-    if port == None:
-        port = 10110
-    rCode = udp(dest, IPport, remainder[0], td, Repeat)
-elif mode.upper() == "TCP":
-    if host == None:
-        host = socket.gethostbyname(socket.gethostname())
-    if port == None:
-        port = 2947
-    Host = socket.gethostbyname(host)
-    rCode = tcp(Host, IPport, remainder[0], td, Repeat)
-else:
-    usage()
-# End if
-if rCode == True:
-    print("Exiting cleanly.")
-    sys.exit(0)
-else:
-    print("Something went wrong, exiting.")
-    sys.exit(1)
-# End if
+    # Main program
+    if mode.upper() == "UDP":
+        if dest == None:
+            dest = socket.gethostbyname(socket.gethostname())
+        if port == None:
+            port = 10110
+        rCode = udp(dest, IPport, remainder[0], td, Repeat)
+    elif mode.upper() == "TCP":
+        if host == None:
+            host = socket.gethostbyname(socket.gethostname())
+        if port == None:
+            port = 2947
+        Host = socket.gethostbyname(host)
+        rCode = tcp(Host, IPport, remainder[0], td, Repeat)
+    else:
+        usage()
+    # End if
+    if rCode == True:
+        print("Exiting cleanly.")
+        sys.exit(0)
+    else:
+        print("Something went wrong, exiting.")
+        sys.exit(1)
+    # End if
+# End main()
+
+if __name__ == "__main__":
+    # execute only if run as a script
+    main()
+
