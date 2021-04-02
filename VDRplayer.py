@@ -242,7 +242,7 @@ def main():
     mode = 'UDP'
     dest = None
     host = None
-    port = None
+    IPport = None
     td = 0.1
     Repeat = 1
     rCode = False
@@ -283,14 +283,14 @@ def main():
     if mode.upper() == "UDP":
         if dest == None:
             dest = socket.gethostbyname(socket.gethostname())
-        if port == None:
-            port = 10110
+        if IPport == None:
+            IPport = 10110
         rCode = udp(dest, IPport, remainder[0], td, Repeat)
     elif mode.upper() == "TCP":
         if host == None:
             host = socket.gethostbyname(socket.gethostname())
-        if port == None:
-            port = 2947
+        if IPport == None:
+            IPport = 2947
         Host = socket.gethostbyname(host)
         rCode = tcp(Host, IPport, remainder[0], td, Repeat)
     else:
