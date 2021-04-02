@@ -279,6 +279,11 @@ def main():
         sys.exit(2)
     # End try
 
+    if not len(remainder) == 1:
+        print("Please specify one file name containing NMEA data.")
+        usage()
+        sys.exit(1)
+
     # Main program
     if mode.upper() == "UDP":
         if dest == None:
