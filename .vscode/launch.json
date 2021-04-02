@@ -31,6 +31,14 @@
             ]
         },
         {
+            "name": "Python: Empty",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": []
+        },
+        {
             "name": "Python: Help Test",
             "type": "python",
             "request": "launch",
