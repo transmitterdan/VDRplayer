@@ -279,10 +279,15 @@ def main():
         sys.exit(2)
     # End try
 
-    if not len(remainder) == 1:
+    if len(remainder) > 1:
         print("Please specify one file name containing NMEA data.")
         usage()
         sys.exit(1)
+
+    if len(remainder) == 0:
+        fName = []
+    else:
+        fName = remainder[0]
 
     # Main program
     if mode.upper() == "UDP":
@@ -290,14 +295,14 @@ def main():
             dest = socket.gethostbyname(socket.gethostname())
         if IPport == None:
             IPport = 10110
-        rCode = udp(dest, IPport, remainder[0], td, Repeat)
+        rCode = udp(dest, IPport, fName, td, Repeat)
     elif mode.upper() == "TCP":
         if host == None:
             host = socket.gethostbyname(socket.gethostname())
         if IPport == None:
             IPport = 2947
         Host = socket.gethostbyname(host)
-        rCode = tcp(Host, IPport, remainder[0], td, Repeat)
+        rCode = tcp(Host, IPport, fName, td, Repeat)
     else:
         usage()
     # End if
