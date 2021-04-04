@@ -256,7 +256,6 @@ def usage():
     print("                       Any valid port is accepted.")
     print("")
     print("-r, --repeat=#         optional number of times to reread input file.")
-    print("                       Any valid port is accepted.")
     print("")
     print("-s, --sleep=#.#        optional seconds delay between packets.")
     print("                       default is 0.1 seconds.")
