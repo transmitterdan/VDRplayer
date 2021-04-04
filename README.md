@@ -1,5 +1,5 @@
 # VDRplayer
-Play VDR files over IP link.
+Play Voyage Data Recorder files over IP link.
 
 USAGE:
 ```
@@ -27,7 +27,7 @@ Commandline options:
   InputFile - Name of file containing NMEA message strings. If no FILE is given then default is to read input text from STDIN.
 ```
 
-VDRplayer is a Python script that will read a text file of lines. Each line is read and sent via UDP or TCP to the IP and port address provided on the command line. Any whitespace at the beginning or end of each line is stripped and \r\n is appended before sending over the link. This is useful for sending previously recorded Voyage Data Recorder files to an NMEA compatible chart plotter such as OpenCPN.
+VDRplayer is a Python script that will stream a file containing NMEA data such as recorded by an NMEA Voyage Data Recorder. Each line is read and sent via UDP or TCP to the IP and port address provided on the command line. Any whitespace at the beginning or end of each line is stripped and \r\n is appended before sending over the link. This is useful for sending previously recorded Voyage Data Recorder files to an NMEA compatible chart plotter such as OpenCPN.  OpenCPN has a VDR plugin that will record any voyage for later playback.
 
 * **Example:**
 
