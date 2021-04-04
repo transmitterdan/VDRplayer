@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 3 of the License, or
@@ -22,16 +22,39 @@ import time
 import string
 import getopt
 
+class percentComplete:
+
+    def __init__(self, tInc):
+        self.oldTime = time.perf_counter()
+        self.tInc = tInc
+
+    def printPercent(self, percent):
+        newTime = time.perf_counter()
+        if (newTime - self.oldTime) > self.tInc:
+            print(" %3.1f percent complete...." % round(percent, 1), end='\r')
+            self.oldTime = newTime
+
+def file_len(f):
+    for i, l in enumerate(f):
+        pass
+    f.seek(0)
+    return i + 1
+
 def openFile(fName):
+    Len = 0
     if fName:
-        f = open(fName,'r')
+        try:
+            f = open(fName,'r')
+            print("Playing file '%s', Type Ctrl-C to exit..." % fName)
+        except FileNotFoundError:
+            print("File '%s' not found, exiting." % fName)
+            sys.exit(1)
+        # End try
+        Len = file_len(f)
     else:
         f = sys.stdin
     # End if
-    if not f:
-        raise FileExistsError()
-    # End if
-    return f
+    return (f, Len)
 # End openFile()
 
 def getNextMessage(f, Delay):
@@ -52,22 +75,32 @@ def getNextMessage(f, Delay):
 # End getNextMessage()
 
 def udp(Dest, Port, fName, Delay, Repeat):
-    f = openFile(fName)
-    print("  UDP target IP: " + Dest)
-    print("UDP target port: " + str(Port))
+    (f, len) = openFile(fName)
+    if len > 0:
+        print("  UDP target IP: " + Dest)
+        print("UDP target port: " + str(Port))
+        print("Inserting %3.2f mS delay between each message." % (Delay*1000))
     sock = socket.socket(socket.AF_INET, # Internet
                         socket.SOCK_DGRAM) # UDP
     # Allow UDP broadcast
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    print("Type Ctrl-C to exit...")
     try:
+        count = 0
+        pct = percentComplete(5.0)
         while True :
             nextMessage = getNextMessage(f, Delay)
+            count = count + 1
+            pct.printPercent(count / len * 100)
             if not nextMessage:
                 Repeat -= 1
                 if Repeat > 0:
                     f.seek(0)
-                    print("Repeating file...")
+                    count = 0
+                    oldTime = time.perf_counter()
+                    if Repeat > 1:
+                        print("Repeating file...%d more times." % Repeat)
+                    else:
+                        print("Repeating file...%d more time." % Repeat)
                     continue
                 return True
             # End if
@@ -133,18 +166,27 @@ def tcp(Host, Port, fName, Delay, Repeat):
     Server.bind(server_address)
     Server.listen(5)
     listening = Server.getsockname()
-    print("Server at address: " + str(listening[0]) + " is listening on port: " + str(listening[1]))
     Server.setblocking(False)
     sel.register(Server, selectors.EVENT_READ, data=None)
     try:
-        f = openFile(fName)
-        while True:
+        (f, len) = openFile(fName)
+        if len > 0:
+            print("Server at address: " + str(listening[0]) + " is listening on port: " + str(listening[1]))
+        count = 0
+        pct = percentComplete(5.0)
+        while True :
             mess = getNextMessage(f, Delay)
+            count = count + 1
+            pct.printPercent(count / len * 100)
             if not mess:
                 Repeat -= 1
                 if Repeat > 0:
                     f.seek(0)
-                    print("Repeating file...")
+                    count = 0
+                    if Repeat > 1:
+                        print("Repeating file...%d more times." % Repeat)
+                    else:
+                        print("Repeating file...%d more time." % Repeat)
                     continue
                 else:
                     return True
