@@ -1,0 +1,53 @@
+{
+    "configurations": [
+        {
+            "name": "Python: UDP Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "WIMDA.txt",
+                "--dest=192.168.0.192",
+                "--UDP",
+                "--repeat=2",
+                "--port=10110",
+                "--sleep=0.07"
+            ]
+        },
+        {
+            "name": "Python: TCP Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "PacCupStartLong.txt",
+                "--host=192.168.0.192",
+                "--TCP",
+                "--repeat=5",
+                "--port=2947",
+                "--sleep=0.07"
+            ]
+        },
+        {
+            "name": "Python: Empty",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": []
+        },
+        {
+            "name": "Python: Help Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "--help"
+            ]
+        }
+
+    ]
+}
