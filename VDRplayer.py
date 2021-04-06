@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 3 of the License, or
@@ -13,7 +13,7 @@
 
 import sys
 
-assert sys.version_info >= (3, 3), "Must run in Python 3.3"
+assert sys.version_info >= (3, 5), "Must run in Python version 3.5 or above"
 
 import socket
 import selectors
@@ -41,7 +41,7 @@ def file_len(f):
     return i + 1
 
 def openFile(fName):
-    Len = 0
+    Len = float('inf')
     if fName:
         try:
             f = open(fName,'r')
@@ -75,16 +75,24 @@ def getNextMessage(f, Delay):
 # End getNextMessage()
 
 def udp(Dest, Port, fName, Delay, Repeat):
-    (f, len) = openFile(fName)
-    if len > 0:
-        print("  UDP target IP: " + Dest)
-        print("UDP target port: " + str(Port))
-        print("Inserting %3.2f mS delay between each message." % (Delay*1000))
-    sock = socket.socket(socket.AF_INET, # Internet
-                        socket.SOCK_DGRAM) # UDP
-    # Allow UDP broadcast
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    if Dest == None:
+        Dest = socket.gethostbyname(socket.gethostname())
+    # End if
+    if Port == None:
+        Port = 10110
+    # End if
+    f = False
+    sock = False
     try:
+        (f, len) = openFile(fName)
+        if len > 0:
+            print("  UDP target IP: " + Dest)
+            print("UDP target port: " + str(Port))
+            print("Inserting %3.2f mS delay between each message." % (Delay*1000))
+        sock = socket.socket(socket.AF_INET, # Internet
+                            socket.SOCK_DGRAM) # UDP
+        # Allow UDP broadcast
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         count = 0
         pct = percentComplete(5.0)
         while True :
@@ -92,6 +100,7 @@ def udp(Dest, Port, fName, Delay, Repeat):
             count = count + 1
             pct.printPercent(count / len * 100)
             if not nextMessage:
+                print("")
                 Repeat -= 1
                 if Repeat > 0:
                     f.seek(0)
@@ -156,19 +165,24 @@ def service_connection(key, mask):
 # End service_connection()
 
 def tcp(Host, Port, fName, Delay, Repeat):
+    if Host == None:
+        Host = socket.gethostbyname(socket.gethostname())
+    # End if
+    Host = socket.gethostbyname(Host)
     if Port == None:
         Port = 2947
     # End if
+    f = False
     clients = []
     Server = False
-    server_address = (Host, Port)
-    Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    Server.bind(server_address)
-    Server.listen(5)
-    listening = Server.getsockname()
-    Server.setblocking(False)
-    sel.register(Server, selectors.EVENT_READ, data=None)
     try:
+        server_address = (Host, Port)
+        Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        Server.bind(server_address)
+        Server.listen(5)
+        listening = Server.getsockname()
+        Server.setblocking(False)
+        sel.register(Server, selectors.EVENT_READ, data=None)
         (f, len) = openFile(fName)
         if len > 0:
             print("Server at address: " + str(listening[0]) + " is listening on port: " + str(listening[1]))
@@ -179,6 +193,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
             count = count + 1
             pct.printPercent(count / len * 100)
             if not mess:
+                print("")
                 Repeat -= 1
                 if Repeat > 0:
                     f.seek(0)
@@ -205,7 +220,6 @@ def tcp(Host, Port, fName, Delay, Repeat):
                         print(CE)
                         print("ConnectionError: Attempting to close connection to client:", key.data.addr)
                         sock = key.fileobj
-                        clients.remove(sock)
                         sel.unregister(sock)
                         sock.close()
                     # End try
@@ -222,7 +236,8 @@ def tcp(Host, Port, fName, Delay, Repeat):
         # Kill off the sockets
         for Client in clients:
             Client.close()
-        Server.close()
+        if Server:
+            Server.close()
         if f:
             f.close()
         # End if
@@ -231,7 +246,8 @@ def tcp(Host, Port, fName, Delay, Repeat):
     finally:
         for Client in clients:
             Client.close()
-        Server.close()
+        if Server:
+            Server.close()
         if f:
             f.close()
         # End if
@@ -271,18 +287,16 @@ def usage():
     print("InputFile              Name of file containing NMEA message strings.")
     print("                       If no FILE is given then default is to read")
     print("                       input text from STDIN.")
+    print("")
+    print("Options are case sensitive.")
     return
 # End usage()
 
 def main():
-    # Command line options spec
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:ut',
-    ['dest=', 'help', 'host=', 'port=', 'repeat=', 'sleep=', 'UDP','TCP'])
-
     # Set default options
     mode = 'UDP'
-    dest = None
-    host = None
+    Dest = None
+    Host = None
     IPport = None
     td = 0.1
     Repeat = 1
@@ -290,9 +304,11 @@ def main():
 
     # Pick up all commandline options
     try:
+        options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:ut',
+        ['dest=', 'help', 'host=', 'port=', 'repeat=', 'sleep=', 'UDP','TCP'])
         for opt, arg in options:
             if opt.lower() in ('-d', '--dest'):
-                dest = arg
+                Dest = arg
             elif opt.lower() in ('-p', '--port'):
                 IPport = int(arg)
             elif opt.lower() in ('-s', '--sleep'):
@@ -302,7 +318,7 @@ def main():
             elif opt.lower() in ('-t', '--tcp'):
                 mode = 'TCP'
             elif opt in ('-o', '--host'):
-                host = arg
+                Host = arg
             elif opt in ('-r', '--repeat'):
                 if len(arg) > 0:
                     Repeat = int(arg)
@@ -315,34 +331,26 @@ def main():
                 sys.exit(2)
             # End if
         # End for
+        if len(remainder) > 1:
+            print("Please specify one file name containing NMEA data.")
+            usage()
+            sys.exit(1)
+        # End if
+        if len(remainder) == 0:
+            fName = []
+        else:
+            fName = remainder[0]
+        # End if
     except getopt.GetoptError as msg:
         print(msg)
+        usage()
         sys.exit(2)
     # End try
 
-    if len(remainder) > 1:
-        print("Please specify one file name containing NMEA data.")
-        usage()
-        sys.exit(1)
-
-    if len(remainder) == 0:
-        fName = []
-    else:
-        fName = remainder[0]
-
     # Main program
     if mode.upper() == "UDP":
-        if dest == None:
-            dest = socket.gethostbyname(socket.gethostname())
-        if IPport == None:
-            IPport = 10110
-        rCode = udp(dest, IPport, fName, td, Repeat)
+        rCode = udp(Dest, IPport, fName, td, Repeat)
     elif mode.upper() == "TCP":
-        if host == None:
-            host = socket.gethostbyname(socket.gethostname())
-        if IPport == None:
-            IPport = 2947
-        Host = socket.gethostbyname(host)
         rCode = tcp(Host, IPport, fName, td, Repeat)
     else:
         usage()
@@ -359,4 +367,3 @@ def main():
 if __name__ == "__main__":
     # execute only if run as a script
     main()
-

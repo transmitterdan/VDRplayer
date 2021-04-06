@@ -48,7 +48,7 @@ The port number 10110 is somewhat arbitrary but it is the "undocumented standard
 
 The sleep delay of 0.05 (50mS) is the delay between each line in the file.
 
-This script has been tested on Windows and Ubuntu Linux (bionic) but it should work on nearly all host platforms with a modern (=>3.3) version of Python.
+This script has been tested on Windows and Ubuntu Linux (bionic) but it should work on nearly all host platforms with a modern (=>3.5) version of Python.
 
 Download the current version of Python here: https://www.python.org/downloads/ or on Ubuntu: sudo apt-get install python3
 
