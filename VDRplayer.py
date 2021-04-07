@@ -35,7 +35,8 @@ class percentComplete:
             self.oldTime = newTime
 
 
-def file_len(f):
+# Count number of lines in a file
+def lineCount(f):
     for (i, l) in enumerate(f):
         pass
     f.seek(0)
@@ -44,7 +45,7 @@ def file_len(f):
 
 def openFile(fName):
     Len = float('inf')
-    if fName:
+    if fName is not None:
         try:
             f = open(fName, 'r')
             print("Playing file '%s', Type Ctrl-C to exit..." % fName)
@@ -52,7 +53,7 @@ def openFile(fName):
             print("File '%s' not found, exiting." % fName)
             sys.exit(1)
         # End try
-        Len = file_len(f)
+        Len = lineCount(f)
     else:
         f = sys.stdin
     # End if
@@ -121,7 +122,7 @@ def udp(Dest, Port, fName, Delay, Repeat):
             sock.sendto(nextMessage, (Dest, Port))
         # End while
     except KeyboardInterrupt:
-        print("KeyboardInterrupt.")
+        print("\nKeyboardInterrupt.")
         return True
     # End except
     finally:
@@ -239,7 +240,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
         # End while
     # End try
     except KeyboardInterrupt:
-        print("KeyboardInterrupt...")
+        print("\nKeyboardInterrupt...")
         return True
 
     except Exception as ex:
@@ -268,45 +269,34 @@ def tcp(Host, Port, fName, Delay, Repeat):
 
 def usage():
     print("USAGE:")
-    print("[python3] VDRplayer.py [--port=Port#] [--sleep=Sleep time]"
-          " [--TCP --host=localhost | --UDP --dest=UDP_IP_Address] InputFile")
-    print("")
-    print("Commandline options:")
-    print("")
+    print("[python3] VDRplayer.py [--port=Port#] [--sleep=Sleep time] "
+          "[--TCP --host=localhost | --UDP --dest=UDP_IP_Address] InputFile\n")
+    print("Commandline options:\n")
     print("-d, --dest=IP_Address  UDP destination IP address.")
-    print("                       Default will resolve to 'localhost'")
-    print("")
-    print("-h, --help             print this message.")
-    print("")
+    print("                       Default will resolve to 'localhost'\n")
+    print("-h, --help             print this message.\n")
     print("-o, --host=IP_Address  TCP server IP address.")
     print("                       This must resolve to a valid IP address on"
-          " this computer.")
-    print("")
+          " this computer.\n")
     print("-p, --port=#           optional communication port number.")
-    print("                       Any valid port is accepted.")
-    print("")
+    print("                       Any valid port is accepted.\n")
     print("-r, --repeat=#         optional number of times to reread input"
-          " file.")
-    print("")
+          " file.\n")
     print("-s, --sleep=#.#        optional seconds delay between packets.")
-    print("                       default is 0.1 seconds.")
-    print("")
+    print("                       default is 0.1 seconds.\n")
     print("-t, --TCP              create TCP server on primary IP address.")
     print("                       Default will resolve to local machine name.")
     print("                       Specify IP address using --host option to"
-          " override default.")
-    print("")
+          " override default.\n")
     print("-u, --UDP              create connectionless UDP link.")
     print("                       UDP is the default if no connection type"
           " specified.")
     print("                       Specify destination IP address using --dest"
-          " option.")
-    print("")
+          " option.\n")
     print("InputFile              Name of file containing NMEA message strings"
           ".")
     print("                       If no FILE is given then default is to read")
-    print("                       input text from STDIN.")
-    print("")
+    print("                       input text from STDIN.\n")
     print("Options are case sensitive.")
     return
 # End usage()
@@ -375,9 +365,9 @@ def main():
     # End try
 
     # Main program
-    if mode.upper() == "UDP":
+    if mode.upper() == 'UDP':
         rCode = udp(Dest, IPport, fName, td, Repeat)
-    elif mode.upper() == "TCP":
+    elif mode.upper() == 'TCP':
         rCode = tcp(Host, IPport, fName, td, Repeat)
     else:
         usage()
@@ -392,6 +382,6 @@ def main():
 # End main()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # execute only if run as a script
     main()
