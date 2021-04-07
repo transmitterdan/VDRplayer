@@ -12,15 +12,15 @@
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
-
-assert sys.version_info >= (3, 5), "Must run in Python version 3.5 or above"
-
 import socket
 import selectors
 import types
 import time
 import string
 import getopt
+
+assert sys.version_info >= (3, 5), "Must run in Python version 3.5 or above"
+
 
 class percentComplete:
 
@@ -34,17 +34,19 @@ class percentComplete:
             print(" %3.1f percent complete...." % round(percent, 1), end='\r')
             self.oldTime = newTime
 
+
 def file_len(f):
-    for i, l in enumerate(f):
+    for (i, l) in enumerate(f):
         pass
     f.seek(0)
     return i + 1
+
 
 def openFile(fName):
     Len = float('inf')
     if fName:
         try:
-            f = open(fName,'r')
+            f = open(fName, 'r')
             print("Playing file '%s', Type Ctrl-C to exit..." % fName)
         except FileNotFoundError:
             print("File '%s' not found, exiting." % fName)
@@ -56,6 +58,7 @@ def openFile(fName):
     # End if
     return (f, Len)
 # End openFile()
+
 
 def getNextMessage(f, Delay):
     if Delay > 0:
@@ -74,11 +77,12 @@ def getNextMessage(f, Delay):
     return(mess.encode("utf-8"))
 # End getNextMessage()
 
+
 def udp(Dest, Port, fName, Delay, Repeat):
-    if Dest == None:
+    if Dest is None:
         Dest = socket.gethostbyname(socket.gethostname())
     # End if
-    if Port == None:
+    if Port is None:
         Port = 10110
     # End if
     f = False
@@ -88,14 +92,15 @@ def udp(Dest, Port, fName, Delay, Repeat):
         if len > 0:
             print("  UDP target IP: " + Dest)
             print("UDP target port: " + str(Port))
-            print("Inserting %3.2f mS delay between each message." % (Delay*1000))
-        sock = socket.socket(socket.AF_INET, # Internet
-                            socket.SOCK_DGRAM) # UDP
+            print("Inserting %3.2f mS delay between each message." %
+                  (Delay * 1000))
+        sock = socket.socket(socket.AF_INET,    # Internet
+                             socket.SOCK_DGRAM)  # UDP
         # Allow UDP broadcast
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         count = 0
         pct = percentComplete(5.0)
-        while True :
+        while True:
             nextMessage = getNextMessage(f, Delay)
             count = count + 1
             pct.printPercent(count / len * 100)
@@ -113,7 +118,7 @@ def udp(Dest, Port, fName, Delay, Repeat):
                     continue
                 return True
             # End if
-            sock.sendto(nextMessage,(Dest, Port))
+            sock.sendto(nextMessage, (Dest, Port))
         # End while
     except KeyboardInterrupt:
         print("KeyboardInterrupt.")
@@ -127,12 +132,14 @@ def udp(Dest, Port, fName, Delay, Repeat):
     # End while
 # End udp()
 
-## Now we create the TCP version.
+
+# Now we create the TCP version.
 # It's more complex because we want to
 # accept multiple client connections
 # simultaneously.
 
 sel = selectors.DefaultSelector()
+
 
 def accept_wrapper(sock):
     conn, addr = sock.accept()
@@ -142,6 +149,7 @@ def accept_wrapper(sock):
     sel.register(conn, events, data=data)
     print("Accepted connection from client: ", data.addr)
 # End accept_wrapper()
+
 
 def service_connection(key, mask):
     sock = key.fileobj
@@ -164,12 +172,13 @@ def service_connection(key, mask):
     # End if
 # End service_connection()
 
+
 def tcp(Host, Port, fName, Delay, Repeat):
-    if Host == None:
+    if Host is None:
         Host = socket.gethostbyname(socket.gethostname())
     # End if
     Host = socket.gethostbyname(Host)
-    if Port == None:
+    if Port is None:
         Port = 2947
     # End if
     f = False
@@ -185,10 +194,11 @@ def tcp(Host, Port, fName, Delay, Repeat):
         sel.register(Server, selectors.EVENT_READ, data=None)
         (f, len) = openFile(fName)
         if len > 0:
-            print("Server at address: " + str(listening[0]) + " is listening on port: " + str(listening[1]))
+            print("Server at address: " + str(listening[0]) +
+                  " is listening on port: " + str(listening[1]))
         count = 0
         pct = percentComplete(5.0)
-        while True :
+        while True:
             mess = getNextMessage(f, Delay)
             count = count + 1
             pct.printPercent(count / len * 100)
@@ -218,7 +228,8 @@ def tcp(Host, Port, fName, Delay, Repeat):
                         service_connection(key, mask)
                     except ConnectionError as CE:
                         print(CE)
-                        print("ConnectionError: Attempting to close connection to client:", key.data.addr)
+                        print("ConnectionError: Attempting to close connection"
+                              " to client:", key.data.addr)
                         sock = key.fileobj
                         sel.unregister(sock)
                         sock.close()
@@ -231,7 +242,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
         print("KeyboardInterrupt...")
         return True
 
-    except:
+    except Exception as ex:
         print("Exception...")
         # Kill off the sockets
         for Client in clients:
@@ -241,7 +252,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
         if f:
             f.close()
         # End if
-        raise
+        raise ex
 
     finally:
         for Client in clients:
@@ -254,9 +265,11 @@ def tcp(Host, Port, fName, Delay, Repeat):
     # End try
 # End tcp()
 
+
 def usage():
     print("USAGE:")
-    print("[python3] VDRplayer.py [--port=Port#] [--sleep=Sleep time] [--TCP --host=localhost | --UDP --dest=UDP_IP_Address] InputFile")
+    print("[python3] VDRplayer.py [--port=Port#] [--sleep=Sleep time]"
+          " [--TCP --host=localhost | --UDP --dest=UDP_IP_Address] InputFile")
     print("")
     print("Commandline options:")
     print("")
@@ -266,31 +279,38 @@ def usage():
     print("-h, --help             print this message.")
     print("")
     print("-o, --host=IP_Address  TCP server IP address.")
-    print("                       This must resolve to a valid IP address on this computer.")
+    print("                       This must resolve to a valid IP address on"
+          " this computer.")
     print("")
     print("-p, --port=#           optional communication port number.")
     print("                       Any valid port is accepted.")
     print("")
-    print("-r, --repeat=#         optional number of times to reread input file.")
+    print("-r, --repeat=#         optional number of times to reread input"
+          " file.")
     print("")
     print("-s, --sleep=#.#        optional seconds delay between packets.")
     print("                       default is 0.1 seconds.")
     print("")
     print("-t, --TCP              create TCP server on primary IP address.")
     print("                       Default will resolve to local machine name.")
-    print("                       Specify IP address using --host option to override default.")
+    print("                       Specify IP address using --host option to"
+          " override default.")
     print("")
     print("-u, --UDP              create connectionless UDP link.")
-    print("                       UDP is the default if no connection type specified.")
-    print("                       Specify destination IP address using --dest option.")
+    print("                       UDP is the default if no connection type"
+          " specified.")
+    print("                       Specify destination IP address using --dest"
+          " option.")
     print("")
-    print("InputFile              Name of file containing NMEA message strings.")
+    print("InputFile              Name of file containing NMEA message strings"
+          ".")
     print("                       If no FILE is given then default is to read")
     print("                       input text from STDIN.")
     print("")
     print("Options are case sensitive.")
     return
 # End usage()
+
 
 def main():
     # Set default options
@@ -305,7 +325,14 @@ def main():
     # Pick up all commandline options
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:ut',
-        ['dest=', 'help', 'host=', 'port=', 'repeat=', 'sleep=', 'UDP','TCP'])
+                                               ['dest=',
+                                                'help',
+                                                'host=',
+                                                'port=',
+                                                'repeat=',
+                                                'sleep=',
+                                                'UDP',
+                                                'TCP'])
         for opt, arg in options:
             if opt.lower() in ('-d', '--dest'):
                 Dest = arg
@@ -355,7 +382,7 @@ def main():
     else:
         usage()
     # End if
-    if rCode == True:
+    if rCode is True:
         print("Exiting cleanly.")
         sys.exit(0)
     else:
@@ -363,6 +390,7 @@ def main():
         sys.exit(1)
     # End if
 # End main()
+
 
 if __name__ == "__main__":
     # execute only if run as a script
