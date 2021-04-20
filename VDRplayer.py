@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 3 of the License, or
@@ -183,7 +183,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
     if Port is None:
         Port = 2947
     # End if
-    events = false
+    events = False
     f = False
     Server = False
     try:
