@@ -162,7 +162,7 @@ def service_connection(key, mask):
             print("Closing connection to client:", sock)
             sel.unregister(sock)
             sock.close()
-            return
+            return False
         # End if
     # End if
     if mask & selectors.EVENT_WRITE:
@@ -171,6 +171,7 @@ def service_connection(key, mask):
             data.outb = data.outb[sent:]
         # End if
     # End if
+    return True
 # End service_connection()
 
 
@@ -183,7 +184,6 @@ def tcp(Host, Port, fName, Delay, Repeat):
         Port = 2947
     # End if
     f = False
-    clients = []
     Server = False
     try:
         server_address = (Host, Port)
@@ -222,7 +222,6 @@ def tcp(Host, Port, fName, Delay, Repeat):
             for key, mask in events:
                 if key.data is None:
                     accept_wrapper(key.fileobj)
-                    clients.append(key.fileobj)
                 else:
                     try:
                         key.data.outb += mess
@@ -245,19 +244,15 @@ def tcp(Host, Port, fName, Delay, Repeat):
 
     except Exception as ex:
         print("Exception...")
-        # Kill off the sockets
-        for Client in clients:
-            Client.close()
-        if Server:
-            Server.close()
-        if f:
-            f.close()
-        # End if
         raise ex
 
     finally:
-        for Client in clients:
-            Client.close()
+        for key, mask in events:
+            print("Finally: Attempting to close connection"
+                  " to client:", key.data.addr)
+            sock = key.fileobj
+            sel.unregister(sock)
+            sock.close()
         if Server:
             Server.close()
         if f:
