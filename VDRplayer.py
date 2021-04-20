@@ -189,6 +189,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
     try:
         server_address = (Host, Port)
         Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        Server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         Server.bind(server_address)
         Server.listen(5)
         listening = Server.getsockname()
