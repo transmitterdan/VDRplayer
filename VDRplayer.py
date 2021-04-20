@@ -183,6 +183,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
     if Port is None:
         Port = 2947
     # End if
+    events = false
     f = False
     Server = False
     try:
@@ -247,12 +248,13 @@ def tcp(Host, Port, fName, Delay, Repeat):
         raise ex
 
     finally:
-        for key, mask in events:
-            print("Finally: Attempting to close connection"
-                  " to client:", key.data.addr)
-            sock = key.fileobj
-            sel.unregister(sock)
-            sock.close()
+        if events:
+            for key, mask in events:
+                print("Finally: Attempting to close connection"
+                      " to client:", key.data.addr)
+                sock = key.fileobj
+                sel.unregister(sock)
+                sock.close()
         if Server:
             Server.close()
         if f:
