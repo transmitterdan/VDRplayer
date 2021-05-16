@@ -124,13 +124,21 @@ def udp(Dest, Port, fName, Delay, Repeat):
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt.")
         return True
-    # End except
+    # End except KeyboardInterrupt
+
+    except Exception as ex:
+        print("Exception...")
+        print(ex)
+        raise ex
+    # End except Exception
+
     finally:
-        sock.close()
+        if sock:
+            sock.close()
         if f:
             f.close()
         # End if
-    # End while
+    # End try
 # End udp()
 
 
@@ -253,6 +261,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
 
     except Exception as ex:
         print("Exception...")
+        print(ex)
         raise ex
 
     finally:
@@ -290,9 +299,8 @@ def usage():
     print("-s, --sleep=#.#        optional seconds delay between packets.")
     print("                       default is 0.1 seconds.\n")
     print("-t, --TCP              create TCP server on primary IP address.")
-    print("                       Default will resolve to local machine name.")
-    print("                       Specify IP address using --host option to"
-          " override default.\n")
+    print("                       Specify local IP address using --host option"
+          "\n                       to override default primary address.\n")
     print("-u, --UDP              create connectionless UDP link.")
     print("                       UDP is the default if no connection type"
           " specified.")
@@ -305,6 +313,22 @@ def usage():
     print("Options are case sensitive.")
     return
 # End usage()
+
+
+# This method returns the "primary" IP on the local box
+# (the one with a default route).
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+# End get_pi()
 
 
 def main():
@@ -330,6 +354,7 @@ def main():
                                                 'TCP'])
         for opt, arg in options:
             if opt.lower() in ('-d', '--dest'):
+                mode = 'UDP'
                 Dest = arg
             elif opt.lower() in ('-p', '--port'):
                 IPport = int(arg)
@@ -340,6 +365,7 @@ def main():
             elif opt.lower() in ('-t', '--tcp'):
                 mode = 'TCP'
             elif opt in ('-o', '--host'):
+                mode = 'TCP'
                 Host = arg
             elif opt in ('-r', '--repeat'):
                 if len(arg) > 0:
@@ -362,6 +388,9 @@ def main():
             fName = []
         else:
             fName = remainder[0]
+        if (Host is None) & (mode == 'TCP'):
+            Host = get_ip()
+
         # End if
     except getopt.GetoptError as msg:
         print(msg)
