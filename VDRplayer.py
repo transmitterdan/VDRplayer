@@ -235,6 +235,13 @@ def tcp(Host, Port, fName, Delay, Repeat):
                         sock = key.fileobj
                         sel.unregister(sock)
                         sock.close()
+                    except TimeoutError as TO:
+                        print(TO)
+                        print("TimeoutError: Attempting to close connection"
+                              " to client:", key.data.addr)
+                        sock = key.fileobj
+                        sel.unregister(sock)
+                        sock.close()
                     # End try
                 # End if
             # End for
