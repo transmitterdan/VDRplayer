@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation, either version 3 of the License, or
@@ -379,7 +379,7 @@ def main():
                 sys.exit(2)
             # End if
         # End for
-        if len(remainder) > 1:
+        if len(remainder) < 1:
             print("Please specify one file name containing NMEA data.")
             usage()
             sys.exit(1)
