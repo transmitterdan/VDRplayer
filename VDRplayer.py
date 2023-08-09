@@ -61,9 +61,7 @@ def openFile(fName):
 # End openFile()
 
 
-def getNextMessage(f, Delay):
-    if Delay > 0:
-        time.sleep(Delay)
+def getNextMessage(f, Delay, Speed):
     if f:
         mess = f.readline()
     else:
@@ -74,12 +72,36 @@ def getNextMessage(f, Delay):
         return False
     # End if
     mess = mess.strip()
+    delayMessage(mess, Delay, Speed)
     mess = mess + u"\r\n"
     return(mess.encode("utf-8"))
 # End getNextMessage()
 
 
-def udp(Dest, Port, fName, Delay, Repeat):
+def delayMessage(mess, Delay, Speed):
+    global initialdelta
+    global starttime
+
+    # Check if it is a NMEAv4 message with timestamp
+    try: 
+       messtime = int(mess.split("*")[0].split(":")[2])
+    except:
+        if Delay > 0:
+            time.sleep(Delay)
+    else:
+        try:
+            initialdelta
+        except NameError:
+            print("NMEAv4 timestamp found. Replaying logs at %3.2fx speed, instead of using delay." % Speed)
+            starttime = time.time()
+            initialdelta = starttime - messtime
+        ComputedDelay = messtime + initialdelta - Speed * time.time() + (Speed - 1 ) * starttime
+        if ComputedDelay > 0:
+            time.sleep(ComputedDelay)
+# End getMessageTimestamp()
+
+
+def udp(Dest, Port, fName, Delay, Repeat, Speed):
     if Dest is None:
         Dest = socket.gethostbyname(socket.gethostname())
     # End if
@@ -102,7 +124,7 @@ def udp(Dest, Port, fName, Delay, Repeat):
         count = 0
         pct = percentComplete(5.0)
         while True:
-            nextMessage = getNextMessage(f, Delay)
+            nextMessage = getNextMessage(f, Delay, Speed)
             count = count + 1
             pct.printPercent(count / len * 100)
             if not nextMessage:
@@ -183,7 +205,7 @@ def service_connection(key, mask):
 # End service_connection()
 
 
-def tcp(Host, Port, fName, Delay, Repeat):
+def tcp(Host, Port, fName, Delay, Repeat, Speed):
     if Host is None:
         Host = socket.gethostbyname(socket.gethostname())
     # End if
@@ -210,7 +232,7 @@ def tcp(Host, Port, fName, Delay, Repeat):
         count = 0
         pct = percentComplete(5.0)
         while True:
-            mess = getNextMessage(f, Delay)
+            mess = getNextMessage(f, Delay, Speed)
             count = count + 1
             pct.printPercent(count / len * 100)
             if not mess:
@@ -296,8 +318,10 @@ def usage():
     print("                       Any valid port is accepted.\n")
     print("-r, --repeat=#         optional number of times to reread input"
           " file.\n")
-    print("-s, --sleep=#.#        optional seconds delay between packets.")
+    print("-s, --sleep=#.#        optional seconds delay between packets, when there is no timestamp in NMEA packets (NMEAv4).")
     print("                       default is 0.1 seconds.\n")
+    print("-f, --fast=#.#         optional speed acceleration factor if NMEAv4.")
+    print("                       default factor is 1.\n")
     print("-t, --TCP              create TCP server on primary IP address.")
     print("                       Specify local IP address using --host option"
           "\n                       to override default primary address.\n")
@@ -340,10 +364,11 @@ def main():
     td = 0.1
     Repeat = 1
     rCode = False
+    Speed=1
 
     # Pick up all commandline options
     try:
-        options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:ut',
+        options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:utf:',
                                                ['dest=',
                                                 'help',
                                                 'host=',
@@ -351,7 +376,8 @@ def main():
                                                 'repeat=',
                                                 'sleep=',
                                                 'UDP',
-                                                'TCP'])
+                                                'TCP',
+                                                'fast='])
         for opt, arg in options:
             if opt.lower() in ('-d', '--dest'):
                 mode = 'UDP'
@@ -367,6 +393,8 @@ def main():
             elif opt in ('-o', '--host'):
                 mode = 'TCP'
                 Host = arg
+            elif opt in ('-f', '--fast'):
+                Speed = float(arg)
             elif opt in ('-r', '--repeat'):
                 if len(arg) > 0:
                     Repeat = int(arg)
@@ -400,9 +428,9 @@ def main():
 
     # Main program
     if mode.upper() == 'UDP':
-        rCode = udp(Dest, IPport, fName, td, Repeat)
+        rCode = udp(Dest, IPport, fName, td, Repeat, Speed)
     elif mode.upper() == 'TCP':
-        rCode = tcp(Host, IPport, fName, td, Repeat)
+        rCode = tcp(Host, IPport, fName, td, Repeat, Speed)
     else:
         usage()
     # End if
