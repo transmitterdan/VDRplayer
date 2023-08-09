@@ -96,7 +96,12 @@ def delayMessage(mess, Delay, Speed):
             starttime = time.time()
             initialdelta = starttime - messtime
         ComputedDelay = messtime + initialdelta - Speed * time.time() + (Speed - 1 ) * starttime
-        if ComputedDelay > 0:
+        if ComputedDelay > 60 :
+            print("Huge gap in file. Not waiting %d seconds." % ComputedDelay)
+            starttime = time.time()
+            initialdelta = starttime - messtime
+            ComputedDelay = 1
+        if ComputedDelay > 0 :
             time.sleep(ComputedDelay)
 # End getMessageTimestamp()
 
