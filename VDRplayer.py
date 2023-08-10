@@ -72,7 +72,8 @@ def getNextMessage(f, Delay, Speed):
         return False
     # End if
     mess = mess.strip()
-    delayMessage(mess, Delay, Speed)
+    if Delay > 0:
+        delayMessage(mess, Delay, Speed)
     mess = mess + u"\r\n"
     return(mess.encode("utf-8"))
 # End getNextMessage()
@@ -86,8 +87,7 @@ def delayMessage(mess, Delay, Speed):
     try: 
        messtime = int(mess.split("*")[0].split(":")[2])
     except:
-        if Delay > 0:
-            time.sleep(Delay)
+        time.sleep(Delay)
     else:
         try:
             initialdelta
@@ -100,7 +100,7 @@ def delayMessage(mess, Delay, Speed):
             print("Huge gap in file. Not waiting %d seconds." % ComputedDelay)
             starttime = time.time()
             initialdelta = starttime - messtime
-            ComputedDelay = 1
+            ComputedDelay = 0 
         if ComputedDelay > 0 :
             time.sleep(ComputedDelay)
 # End getMessageTimestamp()
