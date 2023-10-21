@@ -17,7 +17,9 @@ Commandline options:
 
   -r # | --repeat=# - optional number of times to reread input file. Any valid port is accepted.
 
-  -s #.# | --sleep=#.# - optional seconds delay between packets. Default is 0.1 seconds.
+  -s #.# | --sleep=#.# - optional seconds delay between packets, when there is no timestamp in NMEA packets. Default is 0.1 seconds.
+
+  -f #.# | --fast=#.# - optional speed acceleration factor if NMEAv4. Default factor is 1.0.
 
   -t, --TCP - create TCP server on primary IP address.  Specify any IP address using --host option to override default.
 
