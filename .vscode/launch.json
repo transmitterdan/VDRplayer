@@ -2,13 +2,13 @@
     "configurations": [
         {
             "name": "Python: UDP Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "args": [
-                "WIMDA.txt",
-                "--dest=192.168.0.192",
+                "Pac Cup 2012 Start.txt",
+                "--dest=localhost",
                 "--UDP",
                 "--repeat=2",
                 "--port=10110",
@@ -17,22 +17,22 @@
         },
         {
             "name": "Python: TCP Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "args": [
-                "PacCupStartLong.txt",
-                "--host=192.168.0.192",
+                "Pac Cup 2012 Start.txt",
+                "--host=localhost",
                 "--TCP",
-                "--repeat=5",
+                "--repeat=5000",
                 "--port=2947",
                 "--sleep=0.07"
             ]
         },
         {
             "name": "Python: Empty",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
@@ -40,7 +40,7 @@
         },
         {
             "name": "Python: Help Test",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
