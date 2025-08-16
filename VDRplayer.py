@@ -16,11 +16,108 @@ import socket
 import selectors
 import types
 import time
-import string
 import getopt
+import platform
+
+# Platform-specific imports for preventing system sleep
+try:
+    if platform.system() == 'Windows':
+        import ctypes
+        from ctypes import wintypes
+    elif platform.system() == 'Darwin':  # macOS
+        import subprocess
+    elif platform.system() == 'Linux':
+        import subprocess
+except ImportError:
+    pass
 
 assert sys.version_info >= (3, 5), "Must run in Python version 3.5 or above"
 
+# Sleep interval (seconds) for TCP client connection polling
+TCP_CLIENT_POLL_INTERVAL = 0.1
+
+initialdelta = None
+starttime = None
+
+class SystemKeepAlive:
+    """Cross-platform system keep-alive to prevent sleep during execution"""
+    
+    def __init__(self):
+        self.system = platform.system()
+        self.caffeinate_process = None
+        self.active = False
+    
+    def prevent_sleep(self):
+        """Prevent system from sleeping - cross-platform"""
+        try:
+            if self.system == 'Windows':
+                # Windows: Use SetThreadExecutionState
+                ctypes.windll.kernel32.SetThreadExecutionState(
+                    0x80000000 |  # ES_CONTINUOUS
+                    0x00000002 |  # ES_SYSTEM_REQUIRED
+                    0x00000001     # ES_DISPLAY_REQUIRED
+                )
+                self.active = True
+                print("Windows sleep prevention activated")
+                
+            elif self.system == 'Darwin':
+                # macOS: Use caffeinate command
+                self.caffeinate_process = subprocess.Popen(['caffeinate', '-d'])
+                self.active = True
+                print("macOS sleep prevention activated (caffeinate)")
+                
+            elif self.system == 'Linux':
+                # Linux: Try to use systemd-inhibit or xset
+                try:
+                    # Try systemd-inhibit first (more modern)
+                    subprocess.run(['systemd-inhibit', '--what=idle:sleep', '--who=VDRplayer', 
+                                  '--why="NMEA data streaming"', '--mode=block', 'sleep', '1'], 
+                                 check=True, capture_output=True)
+                    print("Linux sleep prevention activated (systemd)")
+                    self.active = True
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    try:
+                        # Fallback to xset (X11 systems)
+                        subprocess.run(['xset', 's', 'off'], check=True, capture_output=True)
+                        subprocess.run(['xset', '-dpms'], check=True, capture_output=True)
+                        print("Linux sleep prevention activated (xset)")
+                        self.active = True
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        print("Linux sleep prevention not available")
+                        
+        except Exception as e:
+            print(f"Could not activate sleep prevention: {e}")
+            self.active = False
+    
+    def allow_sleep(self):
+        """Allow system to sleep again - cross-platform"""
+        try:
+            if self.system == 'Windows' and self.active:
+                ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)  # ES_CONTINUOUS
+                print("Windows sleep prevention deactivated")
+                
+            elif self.system == 'Darwin' and self.caffeinate_process:
+                self.caffeinate_process.terminate()
+                self.caffeinate_process.wait()
+                print("macOS sleep prevention deactivated")
+                
+            elif self.system == 'Linux' and self.active:
+                try:
+                    # Re-enable screen saver and power management
+                    subprocess.run(['xset', 's', 'on'], capture_output=True)
+                    subprocess.run(['xset', '+dpms'], capture_output=True)
+                    print("Linux sleep prevention deactivated")
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    pass
+                    
+        except Exception as e:
+            print(f"Could not deactivate sleep prevention: {e}")
+        finally:
+            self.active = False
+            self.caffeinate_process = None
+
+# Global keep-alive instance
+keep_alive = SystemKeepAlive()
 
 class percentComplete:
 
@@ -37,6 +134,7 @@ class percentComplete:
 
 # Count number of lines in a file
 def lineCount(f):
+    i = -1
     for (i, l) in enumerate(f):
         pass
     f.seek(0)
@@ -89,9 +187,7 @@ def delayMessage(mess, Delay, Speed):
     except:
         time.sleep(Delay)
     else:
-        try:
-            initialdelta
-        except NameError:
+        if initialdelta is None:
             print("NMEAv4 timestamp found. Replaying logs at %3.2fx speed, instead of using delay." % Speed)
             starttime = time.time()
             initialdelta = starttime - messtime
@@ -126,8 +222,14 @@ def udp(Dest, Port, fName, Delay, Repeat, Speed):
                              socket.SOCK_DGRAM)  # UDP
         # Allow UDP broadcast
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        # Add socket reuse for better cross-platform compatibility
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        
         count = 0
         pct = percentComplete(5.0)
+        consecutive_errors = 0
+        max_consecutive_errors = 5
+        
         while True:
             nextMessage = getNextMessage(f, Delay, Speed)
             count = count + 1
@@ -146,7 +248,21 @@ def udp(Dest, Port, fName, Delay, Repeat, Speed):
                     continue
                 return True
             # End if
-            sock.sendto(nextMessage, (Dest, Port))
+            
+            # Send next message to client with reasonable
+            # number of retries before giving up.
+            try:
+                sock.sendto(nextMessage, (Dest, Port))
+                consecutive_errors = 0  # Reset error counter on success
+            except socket.error as e:
+                consecutive_errors += 1
+                print(f"\nSocket error: {e} (attempt {consecutive_errors})")
+                if consecutive_errors >= max_consecutive_errors:
+                    print("Too many consecutive socket errors, exiting...")
+                    return False
+                # Brief pause before retry
+                time.sleep(0.1)
+                continue
         # End while
     except KeyboardInterrupt:
         print("\nKeyboardInterrupt.")
@@ -180,10 +296,10 @@ sel = selectors.DefaultSelector()
 def accept_wrapper(sock):
     conn, addr = sock.accept()
     conn.setblocking(False)
-    data = types.SimpleNamespace(addr=addr, outb=b"")
+    client_data = types.SimpleNamespace(addr=addr, outb=b"")
     events = selectors.EVENT_READ | selectors.EVENT_WRITE
-    sel.register(conn, events, data=data)
-    print("Accepted connection from client: ", data.addr)
+    sel.register(conn, events, data=client_data)
+    print(f"Accepted connection from client: {client_data.addr}")
 # End accept_wrapper()
 
 
@@ -206,6 +322,16 @@ def service_connection(key, mask):
             data.outb = data.outb[sent:]
         # End if
     # End if
+
+    # Dynamically update selector events based on outb
+    events = selectors.EVENT_READ
+    if data.outb:
+        events |= selectors.EVENT_WRITE
+    try:
+        sel.modify(sock, events, data=data)
+    except Exception:
+        pass
+
     return True
 # End service_connection()
 
@@ -213,33 +339,55 @@ def service_connection(key, mask):
 def tcp(Host, Port, fName, Delay, Repeat, Speed):
     if Host is None:
         Host = socket.gethostbyname(socket.gethostname())
-    # End if
     Host = socket.gethostbyname(Host)
     if Port is None:
         Port = 2947
-    # End if
-    events = False
     f = False
     Server = False
     try:
         server_address = (Host, Port)
         Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         Server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
+        
+        # Add TCP keep-alive for better connection stability across platforms
+        Server.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        
+        # Platform-specific TCP keep-alive settings (where supported)
+        try:
+            if platform.system() != 'Windows':  # Unix-like systems
+                Server.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
+                Server.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
+                Server.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+        except (AttributeError, OSError):
+            pass  # Not all systems support these options
+            
         Server.bind(server_address)
         Server.listen(5)
         listening = Server.getsockname()
         Server.setblocking(False)
         sel.register(Server, selectors.EVENT_READ, data=None)
-        (f, len) = openFile(fName)
-        if len > 0:
+        (f, length) = openFile(fName)
+        if length > 0:
             print("Server at address: " + str(listening[0]) +
                   " is listening on port: " + str(listening[1]))
         count = 0
         pct = percentComplete(5.0)
         while True:
+            # Wait for at least one client to be connected
+            while True:
+                events = sel.select(timeout=0)
+                for key, mask in events:
+                    if key.data is None:
+                        accept_wrapper(key.fileobj)
+                # Wait until at least one client connection is established
+                # This checks if any registered socket has associated client data (i.e., is a client connection)
+                if any(key.data is not None for key in sel.get_map().values()):
+                    break
+                time.sleep(TCP_CLIENT_POLL_INTERVAL)  # Wait a bit before checking again
+
             mess = getNextMessage(f, Delay, Speed)
-            count = count + 1
-            pct.printPercent(count / len * 100)
+            count += 1
+            pct.printPercent(count / length * 100)
             if not mess:
                 print("")
                 Repeat -= 1
@@ -253,58 +401,53 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
                     continue
                 else:
                     return True
-                # End if
-            # End if
-            events = sel.select()
-            for key, mask in events:
-                if key.data is None:
-                    accept_wrapper(key.fileobj)
-                else:
+
+            # Send message to all connected clients
+            for key in list(sel.get_map().values()):
+                if key.data is not None:
                     try:
                         key.data.outb += mess
-                        service_connection(key, mask)
-                    except ConnectionError as CE:
-                        print(CE)
-                        print("ConnectionError: Attempting to close connection"
-                              " to client:", key.data.addr)
-                        sock = key.fileobj
-                        sel.unregister(sock)
-                        sock.close()
-                    except TimeoutError as TO:
-                        print(TO)
-                        print("TimeoutError: Attempting to close connection"
-                              " to client:", key.data.addr)
-                        sock = key.fileobj
-                        sel.unregister(sock)
-                        sock.close()
-                    # End try
-                # End if
-            # End for
-        # End while
-    # End try
-    except KeyboardInterrupt:
-        print("\nKeyboardInterrupt...")
-        return True
+                        sel.modify(key.fileobj, selectors.EVENT_READ | selectors.EVENT_WRITE, data=key.data)
+                    except Exception as ex:
+                        print("Error updating client:", ex)
+                        try:
+                            sel.unregister(key.fileobj)
+                        except Exception:
+                            pass
+                        key.fileobj.close()
 
+            # Service all connections (send data if needed)
+            events = sel.select(timeout=0)
+            for key, mask in events:
+                if key.data is not None:
+                    try:
+                        service_connection(key, mask)
+                    except Exception as ex:
+                        print("Error servicing client:", ex)
+                        try:
+                            sel.unregister(key.fileobj)
+                        except Exception:
+                            pass
+                        key.fileobj.close()
+    except KeyboardInterrupt:
+        print("\nKeyboardInterrupt.")
+        return True
     except Exception as ex:
         print("Exception...")
         print(ex)
         raise ex
-
     finally:
-        if events:
-            for key, mask in events:
-                print("Finally: Attempting to close connection"
-                      " to client:", key.data.addr)
-                sock = key.fileobj
-                sel.unregister(sock)
-                sock.close()
+        for key in list(sel.get_map().values()):
+            if key.data is not None:
+                try:
+                    sel.unregister(key.fileobj)
+                except Exception:
+                    pass
+                key.fileobj.close()
         if Server:
             Server.close()
         if f:
             f.close()
-        # End if
-    # End try
 # End tcp()
 
 
@@ -345,7 +488,8 @@ def usage():
 
 
 # This method returns the "primary" IP on the local box
-# (the one with a default route).
+# (the one with a default route). It may not be what you expect!
+# (e.g. if you have multiple network interfaces)
 def get_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -371,74 +515,86 @@ def main():
     rCode = False
     Speed=1
 
-    # Pick up all commandline options
+    # Activate cross-platform sleep prevention
+    keep_alive.prevent_sleep()
+
     try:
-        options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:utf:',
-                                               ['dest=',
-                                                'help',
-                                                'host=',
-                                                'port=',
-                                                'repeat=',
-                                                'sleep=',
-                                                'UDP',
-                                                'TCP',
-                                                'fast='])
-        for opt, arg in options:
-            if opt.lower() in ('-d', '--dest'):
-                mode = 'UDP'
-                Dest = arg
-            elif opt.lower() in ('-p', '--port'):
-                IPport = int(arg)
-            elif opt.lower() in ('-s', '--sleep'):
-                td = float(arg)
-            elif opt.lower() in ('-u', '--udp'):
-                mode = 'UDP'
-            elif opt.lower() in ('-t', '--tcp'):
-                mode = 'TCP'
-            elif opt in ('-o', '--host'):
-                mode = 'TCP'
-                Host = arg
-            elif opt in ('-f', '--fast'):
-                Speed = float(arg)
-            elif opt in ('-r', '--repeat'):
-                if len(arg) > 0:
-                    Repeat = int(arg)
-            elif opt.lower() in ('-h', '--help'):
+        # Pick up all commandline options
+        try:
+            options, remainder = getopt.gnu_getopt(sys.argv[1:], 'd:ho:p:rs:utf:',
+                                                   ['dest=',
+                                                    'help',
+                                                    'host=',
+                                                    'port=',
+                                                    'repeat=',
+                                                    'sleep=',
+                                                    'UDP',
+                                                    'TCP',
+                                                    'fast='])
+            for opt, arg in options:
+                if opt.lower() in ('-d', '--dest'):
+                    mode = 'UDP'
+                    Dest = arg
+                elif opt.lower() in ('-p', '--port'):
+                    IPport = int(arg)
+                    if not (1 <= IPport <= 65535):
+                        print("Error: Port must be between 1 and 65535")
+                        sys.exit(2)
+                elif opt.lower() in ('-s', '--sleep'):
+                    td = float(arg)
+                elif opt.lower() in ('-u', '--udp'):
+                    mode = 'UDP'
+                elif opt.lower() in ('-t', '--tcp'):
+                    mode = 'TCP'
+                elif opt in ('-o', '--host'):
+                    mode = 'TCP'
+                    Host = arg
+                elif opt in ('-f', '--fast'):
+                    Speed = float(arg)
+                elif opt in ('-r', '--repeat'):
+                    if len(arg) > 0:
+                        Repeat = int(arg)
+                elif opt.lower() in ('-h', '--help'):
+                    usage()
+                    sys.exit()
+                else:
+                    print("Unknown option: ", opt)
+                    usage()
+                    sys.exit(2)
+                # End if
+            # End for
+            if len(remainder) < 1:
+                print("Please specify one file name containing NMEA data.")
                 usage()
-                sys.exit()
-            else:
-                print("Unknown option: ", opt)
-                usage()
-                sys.exit(2)
+                sys.exit(1)
             # End if
-        # End for
-        if len(remainder) < 1:
-            print("Please specify one file name containing NMEA data.")
+            if len(remainder) == 0:
+                fName = []
+            else:
+                fName = remainder[0]
+            if (Host is None) & (mode == 'TCP'):
+                Host = get_ip()
+
+            # End if
+        except getopt.GetoptError as msg:
+            print(msg)
             usage()
-            sys.exit(1)
-        # End if
-        if len(remainder) == 0:
-            fName = []
+            sys.exit(2)
+        # End try
+
+        # Main program
+        if mode.upper() == 'UDP':
+            rCode = udp(Dest, IPport, fName, td, Repeat, Speed)
+        elif mode.upper() == 'TCP':
+            rCode = tcp(Host, IPport, fName, td, Repeat, Speed)
         else:
-            fName = remainder[0]
-        if (Host is None) & (mode == 'TCP'):
-            Host = get_ip()
-
+            usage()
         # End if
-    except getopt.GetoptError as msg:
-        print(msg)
-        usage()
-        sys.exit(2)
-    # End try
-
-    # Main program
-    if mode.upper() == 'UDP':
-        rCode = udp(Dest, IPport, fName, td, Repeat, Speed)
-    elif mode.upper() == 'TCP':
-        rCode = tcp(Host, IPport, fName, td, Repeat, Speed)
-    else:
-        usage()
-    # End if
+        
+    finally:
+        # Always restore sleep capability when exiting
+        keep_alive.allow_sleep()
+        
     if rCode is True:
         print("Exiting cleanly.")
         sys.exit(0)
@@ -452,3 +608,4 @@ def main():
 if __name__ == '__main__':
     # execute only if run as a script
     main()
+    
