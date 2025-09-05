@@ -454,25 +454,26 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
 def usage():
     print("USAGE:")
     print("[python3] VDRplayer.py [--port=Port#] [--sleep=Sleep time] "
-          "[--TCP --host=localhost | --UDP --dest=UDP_IP_Address] InputFile\n")
+          "[--TCP --host=local IP | --UDP --dest=UDP_IP_Address] InputFile\n")
     print("Commandline options:\n")
     print("-d, --dest=IP_Address  UDP destination IP address.")
     print("                       Default will resolve to 'localhost'\n")
     print("-h, --help             print this message.\n")
     print("-o, --host=IP_Address  TCP server IP address.")
-    print("                       This must resolve to a valid IP address on"
-          " this computer.\n")
-    print("-p, --port=#           optional communication port number.")
-    print("                       Any valid port is accepted.\n")
-    print("-r, --repeat=#         optional number of times to reread input"
-          " file.\n")
-    print("-s, --sleep=#.#        optional seconds delay between packets, when there is no timestamp in NMEA packets (NMEAv4).")
+    print("                       This must resolve to a valid IP address on")
+    print("                       this machine. Default is this machine's primary IP.")
+    print("                       The string \"localhost\" resolves to 127.0.0.1\n")
+    print("-p, --port=#           optional IP communication port number.")
+    print("                       Default TCP port is 2947, UDP is 10110.\n")
+    print("-r, --repeat=#         optional number of times to reread input file.\n")
+    print("-s, --sleep=#.#        optional seconds delay between packets, when")
+    print("                       there is no timestamp in NMEA packets (NMEAv4).")
     print("                       default is 0.1 seconds.\n")
     print("-f, --fast=#.#         optional speed acceleration factor if NMEAv4.")
     print("                       default factor is 1.\n")
-    print("-t, --TCP              create TCP server on primary IP address.")
-    print("                       Specify local IP address using --host option"
-          "\n                       to override default primary address.\n")
+    print("-t, --TCP              create TCP server on machine primary IP address.")
+    print("                       Specify local IP address using --host suboption")
+    print("                       to override default primary address.\n")
     print("-u, --UDP              create connectionless UDP link.")
     print("                       UDP is the default if no connection type"
           " specified.")
@@ -501,7 +502,7 @@ def get_ip():
     finally:
         s.close()
     return IP
-# End get_pi()
+# End get_ip()
 
 
 def main():
@@ -514,9 +515,6 @@ def main():
     Repeat = 1
     rCode = False
     Speed=1
-
-    # Activate cross-platform sleep prevention
-    keep_alive.prevent_sleep()
 
     try:
         # Pick up all commandline options
@@ -584,9 +582,13 @@ def main():
 
         # Main program
         if mode.upper() == 'UDP':
+            keep_alive.prevent_sleep()
             rCode = udp(Dest, IPport, fName, td, Repeat, Speed)
+            keep_alive.allow_sleep()
         elif mode.upper() == 'TCP':
+            keep_alive.prevent_sleep()
             rCode = tcp(Host, IPport, fName, td, Repeat, Speed)
+            keep_alive.allow_sleep()
         else:
             usage()
         # End if

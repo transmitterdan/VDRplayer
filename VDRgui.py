@@ -14,6 +14,72 @@ import socket
 import platform
 from pathlib import Path
 
+class ToolTip:
+    """Create a tooltip for a given widget"""
+    def __init__(self, widget, text='widget info'):
+        self.widget = widget
+        self.text = text
+        self.tipwindow = None
+        self.id = None
+        self.x = self.y = 0
+        
+        # Bind events
+        self.widget.bind("<Enter>", self.enter)
+        self.widget.bind("<Leave>", self.leave)
+        self.widget.bind("<ButtonPress>", self.leave)
+    
+    def enter(self, event=None):
+        """Show tooltip on mouse enter"""
+        self.schedule()
+    
+    def leave(self, event=None):
+        """Hide tooltip on mouse leave"""
+        self.unschedule()
+        self.hidetip()
+    
+    def schedule(self):
+        """Schedule tooltip to appear after delay"""
+        self.unschedule()
+        self.id = self.widget.after(500, self.showtip)  # 500ms delay
+    
+    def unschedule(self):
+        """Cancel scheduled tooltip"""
+        id_ = self.id
+        self.id = None
+        if id_:
+            self.widget.after_cancel(id_)
+    
+    def showtip(self):
+        try:
+            """Display the tooltip"""
+            if self.tipwindow or not self.text:
+                return
+            
+            x, y, cx, cy = self.widget.bbox("insert") if hasattr(self.widget, 'bbox') else (0, 0, 0, 0)
+            x += self.widget.winfo_rootx() + 25
+            y += self.widget.winfo_rooty() - 25
+            
+            # Create tooltip window
+            self.tipwindow = tw = tk.Toplevel(self.widget)
+            tw.wm_overrideredirect(True)
+            tw.wm_geometry(f"+{x}+{y}")
+            
+            # Style the tooltip
+            label = tk.Label(tw, text=self.text, justify=tk.LEFT,
+                            background="#ffffe0", relief=tk.SOLID, borderwidth=1,
+                            font=("Arial", 9), wraplength=300)
+            label.pack(ipadx=5, ipady=3)
+
+        except Exception as e:
+            self.logout(f"Exception: {e}")
+
+    def hidetip(self):
+        """Hide the tooltip"""
+        tw = self.tipwindow
+        self.tipwindow = None
+        if tw:
+            tw.destroy()
+
 class VDRPlayerGUI:
     def __init__(self, root):
         self.root = root
@@ -54,7 +120,12 @@ class VDRPlayerGUI:
         self.file_entry = ttk.Entry(file_frame, textvariable=self.file_var, width=50)
         self.file_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(10, 5))
         
-        ttk.Button(file_frame, text="Browse...", command=self.browse_file).grid(row=0, column=2)
+        browse_btn = ttk.Button(file_frame, text="Browse...", command=self.browse_file)
+        browse_btn.grid(row=0, column=2)
+        
+        # Add tooltips
+        ToolTip(self.file_entry, "Path to the NMEA data file containing GPS/navigation messages")
+        ToolTip(browse_btn, "Click to browse for NMEA data files (.txt, .nmea, .log)")
         
         # Network Configuration Section
         network_frame = ttk.LabelFrame(main_frame, text="Network Configuration", padding="10")
@@ -66,10 +137,18 @@ class VDRPlayerGUI:
         self.protocol_var = tk.StringVar(value="UDP")
         protocol_frame = ttk.Frame(network_frame)
         protocol_frame.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
-        ttk.Radiobutton(protocol_frame, text="UDP", variable=self.protocol_var, 
-                       value="UDP", command=self.protocol_changed).pack(side=tk.LEFT)
-        ttk.Radiobutton(protocol_frame, text="TCP", variable=self.protocol_var, 
-                       value="TCP", command=self.protocol_changed).pack(side=tk.LEFT, padx=(20, 0))
+        
+        udp_radio = ttk.Radiobutton(protocol_frame, text="UDP", variable=self.protocol_var, 
+                       value="UDP", command=self.protocol_changed)
+        udp_radio.pack(side=tk.LEFT)
+        
+        tcp_radio = ttk.Radiobutton(protocol_frame, text="TCP", variable=self.protocol_var, 
+                       value="TCP", command=self.protocol_changed)
+        tcp_radio.pack(side=tk.LEFT, padx=(20, 0))
+        
+        # Add tooltips for protocol selection
+        ToolTip(udp_radio, "UDP: Connectionless broadcast mode - sends to all listeners on network")
+        ToolTip(tcp_radio, "TCP: Connection-based server mode - accepts multiple client connections")
         
         # IP Address
         ttk.Label(network_frame, text="IP Address:").grid(row=1, column=0, sticky=tk.W, pady=(5, 0))
@@ -78,7 +157,12 @@ class VDRPlayerGUI:
         self.ip_entry.grid(row=1, column=1, sticky=tk.W, padx=(10, 0), pady=(5, 0))
         
         # Auto-detect IP button
-        ttk.Button(network_frame, text="Auto-detect", command=self.auto_detect_ip).grid(row=1, column=2, padx=(10, 0), pady=(5, 0))
+        autodetect_btn = ttk.Button(network_frame, text="Auto-detect", command=self.auto_detect_ip)
+        autodetect_btn.grid(row=1, column=2, padx=(10, 0), pady=(5, 0))
+        
+        # Add tooltips
+        ToolTip(self.ip_entry, "IP address or hostname (UDP: destination, TCP: server interface)")
+        ToolTip(autodetect_btn, "Automatically detect the primary IP address of this computer")
         
         # Port
         ttk.Label(network_frame, text="Port:").grid(row=2, column=0, sticky=tk.W, pady=(5, 0))
@@ -89,7 +173,12 @@ class VDRPlayerGUI:
         self.port_entry.pack(side=tk.LEFT)
         
         # Default port button
-        ttk.Button(port_frame, text="Default", command=self.set_default_port).pack(side=tk.LEFT, padx=(10, 0))
+        default_port_btn = ttk.Button(port_frame, text="Default", command=self.set_default_port)
+        default_port_btn.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Add tooltips
+        ToolTip(self.port_entry, "Network port number (1-65535). UDP default: 10110, TCP default: 2947")
+        ToolTip(default_port_btn, "Set to default port based on selected protocol")
         
         # IP address label (shows UDP destination vs TCP host)
         self.ip_label_var = tk.StringVar(value="UDP Destination:")
@@ -104,16 +193,30 @@ class VDRPlayerGUI:
         # Sleep delay
         ttk.Label(timing_frame, text="Delay between packets (seconds):").grid(row=0, column=0, sticky=tk.W)
         self.sleep_var = tk.StringVar(value="0.1")
-        sleep_spin = ttk.Spinbox(timing_frame, from_=0.001, to=60.0, increment=0.1, 
+        sleep_spin = ttk.Spinbox(timing_frame, from_=0.001, to=60.0, increment=0.001, 
                                 textvariable=self.sleep_var, width=10, format="%.3f")
         sleep_spin.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
+        
+        # Add tooltip for sleep delay
+        ToolTip(sleep_spin, 
+                "Delay between NMEA messages in seconds.\n"
+                "Used only when NMEAv4 timestamps are not present.\n"
+                "Smaller values = faster playback, larger values = slower playback.\n"
+                "Range: 0.001 to 60.0 seconds")
         
         # Speed factor
         ttk.Label(timing_frame, text="Speed factor (NMEAv4):").grid(row=1, column=0, sticky=tk.W, pady=(5, 0))
         self.speed_var = tk.StringVar(value="1.0")
-        speed_spin = ttk.Spinbox(timing_frame, from_=0.1, to=10.0, increment=0.1, 
+        speed_spin = ttk.Spinbox(timing_frame, from_=0.01, to=10.0, increment=0.01, 
                                 textvariable=self.speed_var, width=10, format="%.1f")
         speed_spin.grid(row=1, column=1, sticky=tk.W, padx=(10, 0), pady=(5, 0))
+        
+        # Add tooltip for speed factor
+        ToolTip(speed_spin,
+                "Playback speed multiplier for NMEAv4 files with timestamps.\n"
+                "1.0 = real-time, 2.0 = 2x speed, 0.5 = half speed\n"
+                "Only used when NMEA messages contain timestamps.\n"
+                "Range: 0.01 to 10.0")
         
         # Repeat count
         ttk.Label(timing_frame, text="Repeat count:").grid(row=2, column=0, sticky=tk.W, pady=(5, 0))
@@ -121,6 +224,13 @@ class VDRPlayerGUI:
         repeat_spin = ttk.Spinbox(timing_frame, from_=1, to=1000, increment=1, 
                                  textvariable=self.repeat_var, width=10)
         repeat_spin.grid(row=2, column=1, sticky=tk.W, padx=(10, 0), pady=(5, 0))
+        
+        # Add tooltip for repeat count
+        ToolTip(repeat_spin,
+                "Number of times to repeat the entire file.\n"
+                "1 = play once, 2 = play twice, etc.\n"
+                "Useful for continuous testing or demonstrations.\n"
+                "Range: 1 to 1000")
         
         # Advanced Options Section
         advanced_frame = ttk.LabelFrame(main_frame, text="Advanced Options", padding="10")
@@ -132,6 +242,12 @@ class VDRPlayerGUI:
         custom_args_entry = ttk.Entry(advanced_frame, textvariable=self.custom_args_var, width=50)
         custom_args_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(10, 0))
         advanced_frame.columnconfigure(1, weight=1)
+        
+        # Add tooltip for custom arguments
+        ToolTip(custom_args_entry,
+                "Additional command-line arguments to pass to VDRplayer.py\n"
+                "Example: --help for usage information\n"
+                "Separate multiple arguments with spaces")
         
         # Control Buttons Section
         button_frame = ttk.Frame(main_frame)
@@ -145,14 +261,24 @@ class VDRPlayerGUI:
                                      command=self.stop_vdrplayer, state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT, padx=(0, 10))
         
-        ttk.Button(button_frame, text="Test Configuration", 
-                  command=self.test_configuration).pack(side=tk.LEFT, padx=(0, 10))
+        self.test_btn = ttk.Button(button_frame, text="Test Configuration", 
+                  command=self.test_configuration)
+        self.test_btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        ttk.Button(button_frame, text="Save Config", 
-                  command=self.save_configuration).pack(side=tk.LEFT, padx=(0, 10))
+        self.save_btn = ttk.Button(button_frame, text="Save Config", 
+                  command=self.save_configuration)
+        self.save_btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        ttk.Button(button_frame, text="Load Config", 
-                  command=self.load_configuration).pack(side=tk.LEFT)
+        self.load_btn = ttk.Button(button_frame, text="Load Config", 
+                  command=self.load_configuration)
+        self.load_btn.pack(side=tk.LEFT)
+        
+        # Add tooltips for control buttons
+        ToolTip(self.start_button, "Start VDRplayer with current configuration")
+        ToolTip(self.stop_button, "Stop the running VDRplayer process")
+        ToolTip(self.test_btn, "Validate configuration and show command that would be executed")
+        ToolTip(self.save_btn, "Save current configuration to a .cfg file")
+        ToolTip(self.load_btn, "Load configuration from a previously saved .cfg file")
         
         # Status and Output Section
         output_frame = ttk.LabelFrame(main_frame, text="Status and Output", padding="10")
@@ -172,9 +298,13 @@ class VDRPlayerGUI:
         self.output_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(5, 0))
         
         # Clear output button
-        ttk.Button(output_frame, text="Clear Output", 
-                  command=self.clear_output).grid(row=2, column=0, sticky=tk.E, pady=(5, 0))
-    
+        clear_btn = ttk.Button(output_frame, text="Clear Output", command=self.clear_output)
+        clear_btn.grid(row=2, column=0, sticky=tk.E, pady=(5, 0))
+        
+        # Add tooltips for output section
+        ToolTip(self.output_text, "Real-time output from VDRplayer showing status and progress")
+        ToolTip(clear_btn, "Clear all text from the output window")
+
     def load_defaults(self):
         """Load default values"""
         self.auto_detect_ip()
@@ -358,7 +488,7 @@ class VDRPlayerGUI:
             
             # Update status
             self.status_var.set("Starting VDRplayer...")
-            self.log_output(f"Starting VDRplayer with command: python {' '.join(args)}")
+            self.log_output(f"Starting VDRplayer with command: python {' '.join(args)}\n")
             
             # Start process
             self.vdr_process = subprocess.Popen(
@@ -371,6 +501,7 @@ class VDRPlayerGUI:
             
             self.is_running = True
             self.start_button.configure(state=tk.DISABLED)
+            self.test_btn.configure(state=tk.DISABLED)
             self.stop_button.configure(state=tk.NORMAL)
             self.status_var.set("VDRplayer running...")
             
@@ -391,7 +522,7 @@ class VDRPlayerGUI:
                 self.vdr_process.kill()
                 self.vdr_process.wait()
             except Exception as e:
-                self.log_output(f"Error stopping process: {e}")
+                self.log_output(f"Error stopping process: {e}\n")
             
             self.cleanup_process()
     
@@ -400,9 +531,10 @@ class VDRPlayerGUI:
         self.is_running = False
         self.vdr_process = None
         self.start_button.configure(state=tk.NORMAL)
+        self.test_btn.configure(state=tk.NORMAL)
         self.stop_button.configure(state=tk.DISABLED)
         self.status_var.set("VDRplayer stopped")
-        self.log_output("VDRplayer process ended")
+        self.log_output("VDRplayer process ended\n")
     
     def monitor_process(self):
         """Monitor VDRplayer output in background thread"""
@@ -411,18 +543,18 @@ class VDRPlayerGUI:
                 line = self.vdr_process.stdout.readline()
                 if line:
                     # Update UI from background thread
-                    self.root.after(0, self.log_output, line.rstrip())
+                    self.root.after(0, self.log_output, line)
                 elif self.vdr_process.poll() is not None:
                     break
         except Exception as e:
-            self.root.after(0, self.log_output, f"Error monitoring process: {e}")
+            self.root.after(0, self.log_output, f"Error monitoring process: {e}\n")
         finally:
             if self.vdr_process and self.vdr_process.poll() is not None:
                 self.root.after(0, self.cleanup_process)
     
     def log_output(self, message):
         """Add message to output text area"""
-        self.output_text.insert(tk.END, message + "\n")
+        self.output_text.insert(tk.END, message)
         self.output_text.see(tk.END)
     
     def clear_output(self):
