@@ -306,9 +306,15 @@ def accept_wrapper(sock):
 def service_connection(key, mask):
     sock = key.fileobj
     data = key.data
+
+    # Add connection health tracking
+    if not hasattr(data, 'last_activity'):
+        data.last_activity = time.time()
+        data.send_errors = 0
+
     if mask & selectors.EVENT_READ:
         recv_data = sock.recv(1024)  # Should be ready to read
-        print(str(len(recv_data)) + " characters received...")
+        # print(str(len(recv_data)) + " characters received...")
         if not recv_data:
             print("Closing connection to client:", sock)
             sel.unregister(sock)
@@ -316,11 +322,40 @@ def service_connection(key, mask):
             return False
         # End if
     # End if
+
     if mask & selectors.EVENT_WRITE:
         if data.outb:
-            sent = sock.send(data.outb)  # Should be ready to write
-            data.outb = data.outb[sent:]
+            try:
+                sent = sock.send(data.outb)  # Should be ready to write
+                if sent == 0:  # Socket connection broken
+                    print(f"Client {data.addr} connection broken")
+                    return False
+                # End if
+                data.outb = data.outb[sent:]
+                data.last_activity = time.time()
+                data.send_errors = 0  # Reset error counter
+
+                # Warn about slow clients
+                if len(data.outb) > 4096:  # 4KB backlog
+                    print(f"Warning: Client {data.addr} falling behind")
+                # End if
+                    
+            except socket.error as e:
+                data.send_errors += 1
+                print(f"Send error to client {data.addr}: {e} (error #{data.send_errors})")
+            
+            # Disconnect clients with repeated errors
+            if data.send_errors >= 3:
+                print(f"Disconnecting problematic client {data.addr}")
+                return False
+            # End if
         # End if
+    # End if
+                    
+    # Check for inactive clients (optional timeout)
+    if time.time() - data.last_activity > 10:  # 10 second timeout
+        print(f"Client {data.addr} inactive, disconnecting")
+        return False
     # End if
 
     # Dynamically update selector events based on outb
@@ -334,7 +369,6 @@ def service_connection(key, mask):
 
     return True
 # End service_connection()
-
 
 def tcp(Host, Port, fName, Delay, Repeat, Speed):
     if Host is None:
@@ -358,6 +392,9 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
                 Server.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
                 Server.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
                 Server.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+            # Optional: Set send/receive buffer sizes
+            Server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 8192)
+            Server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8192)
         except (AttributeError, OSError):
             pass  # Not all systems support these options
             
@@ -421,7 +458,13 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
             for key, mask in events:
                 if key.data is not None:
                     try:
-                        service_connection(key, mask)
+                        res = service_connection(key, mask)
+                        if not res:
+                            try:
+                                sel.unregister(key.fileobj)
+                            except Exception:
+                                pass
+                            key.fileobj.close()
                     except Exception as ex:
                         print("Error servicing client:", ex)
                         try:
