@@ -4,14 +4,14 @@
             "name": "Python: UDP Test",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "${workspaceFolder}/VDRplayer.py",
             "console": "integratedTerminal",
             "args": [
                 "Pac Cup 2012 Start.txt",
                 "--dest=localhost",
                 "--UDP",
                 "--repeat=2",
-                "--port=10110",
+                "--port=2947",
                 "--sleep=0.07"
             ]
         },
@@ -19,14 +19,14 @@
             "name": "Python: TCP Test",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "${workspaceFolder}/VDRplayer.py",
             "console": "integratedTerminal",
             "args": [
                 "Pac Cup 2012 Start.txt",
-                "--host=localhost",
+                "--host=127.0.0.1",
                 "--TCP",
                 "--repeat=5000",
-                "--port=2947",
+                "--port=10110",
                 "--sleep=0.07"
             ]
         },
@@ -42,7 +42,7 @@
             "name": "Python: Help Test",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "${workspaceFolder}/VDRplayer.py",
             "console": "integratedTerminal",
             "args": [
                 "--help"
