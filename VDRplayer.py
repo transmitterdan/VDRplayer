@@ -11,6 +11,23 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# VDRplayer.py - NMEA data player for UDP/TCP streaming
+
+# Author: Dan Dickey
+# Date: June 6, 2024
+# Version: 1.5
+# Description:
+# This program reads NMEA data from a file or standard input and
+# streams it over UDP or TCP to specified destinations. It supports
+# configurable delays between messages, repeating the input file,
+# and speed adjustment for NMEAv4 timestamped messages. It also
+# includes cross-platform functionality to prevent the system from
+# sleeping during operation.
+# Usage instructions are provided in the usage() function.
+# Note: This script requires Python 3.5 or above.
+# End of header
+
+# All of these library imports should be standard with Python 3.5+ and above
 import sys
 import socket
 import selectors
@@ -466,7 +483,7 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
                                 pass
                             key.fileobj.close()
                     except Exception as ex:
-                        print("Error servicing client:", ex)
+                        print("Error servicing tcp client:", ex)
                         try:
                             sel.unregister(key.fileobj)
                         except Exception:
