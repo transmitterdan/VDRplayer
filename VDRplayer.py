@@ -11,6 +11,23 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# VDRplayer.py - NMEA data player for UDP/TCP streaming
+
+# Author: Dan Dickey
+# Date: June 6, 2024
+# Version: 1.5
+# Description:
+# This program reads NMEA data from a file or standard input and
+# streams it over UDP or TCP to specified destinations. It supports
+# configurable delays between messages, repeating the input file,
+# and speed adjustment for NMEAv4 timestamped messages. It also
+# includes cross-platform functionality to prevent the system from
+# sleeping during operation.
+# Usage instructions are provided in the usage() function.
+# Note: This script requires Python 3.5 or above.
+# End of header
+
+# All of these library imports should be standard with Python 3.5+ and above
 import sys
 import socket
 import selectors
@@ -306,9 +323,15 @@ def accept_wrapper(sock):
 def service_connection(key, mask):
     sock = key.fileobj
     data = key.data
+
+    # Add connection health tracking
+    if not hasattr(data, 'last_activity'):
+        data.last_activity = time.time()
+        data.send_errors = 0
+
     if mask & selectors.EVENT_READ:
         recv_data = sock.recv(1024)  # Should be ready to read
-        print(str(len(recv_data)) + " characters received...")
+        # print(str(len(recv_data)) + " characters received...")
         if not recv_data:
             print("Closing connection to client:", sock)
             sel.unregister(sock)
@@ -316,11 +339,40 @@ def service_connection(key, mask):
             return False
         # End if
     # End if
+
     if mask & selectors.EVENT_WRITE:
         if data.outb:
-            sent = sock.send(data.outb)  # Should be ready to write
-            data.outb = data.outb[sent:]
+            try:
+                sent = sock.send(data.outb)  # Should be ready to write
+                if sent == 0:  # Socket connection broken
+                    print(f"Client {data.addr} connection broken")
+                    return False
+                # End if
+                data.outb = data.outb[sent:]
+                data.last_activity = time.time()
+                data.send_errors = 0  # Reset error counter
+
+                # Warn about slow clients
+                if len(data.outb) > 4096:  # 4KB backlog
+                    print(f"Warning: Client {data.addr} falling behind")
+                # End if
+                    
+            except socket.error as e:
+                data.send_errors += 1
+                print(f"Send error to client {data.addr}: {e} (error #{data.send_errors})")
+            
+            # Disconnect clients with repeated errors
+            if data.send_errors >= 3:
+                print(f"Disconnecting problematic client {data.addr}")
+                return False
+            # End if
         # End if
+    # End if
+                    
+    # Check for inactive clients (optional timeout)
+    if time.time() - data.last_activity > 10:  # 10 second timeout
+        print(f"Client {data.addr} inactive, disconnecting")
+        return False
     # End if
 
     # Dynamically update selector events based on outb
@@ -334,7 +386,6 @@ def service_connection(key, mask):
 
     return True
 # End service_connection()
-
 
 def tcp(Host, Port, fName, Delay, Repeat, Speed):
     if Host is None:
@@ -358,6 +409,9 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
                 Server.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
                 Server.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
                 Server.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+            # Optional: Set send/receive buffer sizes
+            Server.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 8192)
+            Server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8192)
         except (AttributeError, OSError):
             pass  # Not all systems support these options
             
@@ -421,9 +475,15 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
             for key, mask in events:
                 if key.data is not None:
                     try:
-                        service_connection(key, mask)
+                        res = service_connection(key, mask)
+                        if not res:
+                            try:
+                                sel.unregister(key.fileobj)
+                            except Exception:
+                                pass
+                            key.fileobj.close()
                     except Exception as ex:
-                        print("Error servicing client:", ex)
+                        print("Error servicing tcp client:", ex)
                         try:
                             sel.unregister(key.fileobj)
                         except Exception:
@@ -454,25 +514,26 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
 def usage():
     print("USAGE:")
     print("[python3] VDRplayer.py [--port=Port#] [--sleep=Sleep time] "
-          "[--TCP --host=localhost | --UDP --dest=UDP_IP_Address] InputFile\n")
+          "[--TCP --host=local IP | --UDP --dest=UDP_IP_Address] InputFile\n")
     print("Commandline options:\n")
     print("-d, --dest=IP_Address  UDP destination IP address.")
     print("                       Default will resolve to 'localhost'\n")
     print("-h, --help             print this message.\n")
     print("-o, --host=IP_Address  TCP server IP address.")
-    print("                       This must resolve to a valid IP address on"
-          " this computer.\n")
-    print("-p, --port=#           optional communication port number.")
-    print("                       Any valid port is accepted.\n")
-    print("-r, --repeat=#         optional number of times to reread input"
-          " file.\n")
-    print("-s, --sleep=#.#        optional seconds delay between packets, when there is no timestamp in NMEA packets (NMEAv4).")
+    print("                       This must resolve to a valid IP address on")
+    print("                       this machine. Default is this machine's primary IP.")
+    print("                       The string \"localhost\" resolves to 127.0.0.1\n")
+    print("-p, --port=#           optional IP communication port number.")
+    print("                       Default TCP port is 2947, UDP is 10110.\n")
+    print("-r, --repeat=#         optional number of times to reread input file.\n")
+    print("-s, --sleep=#.#        optional seconds delay between packets, when")
+    print("                       there is no timestamp in NMEA packets (NMEAv4).")
     print("                       default is 0.1 seconds.\n")
     print("-f, --fast=#.#         optional speed acceleration factor if NMEAv4.")
     print("                       default factor is 1.\n")
-    print("-t, --TCP              create TCP server on primary IP address.")
-    print("                       Specify local IP address using --host option"
-          "\n                       to override default primary address.\n")
+    print("-t, --TCP              create TCP server on machine primary IP address.")
+    print("                       Specify local IP address using --host suboption")
+    print("                       to override default primary address.\n")
     print("-u, --UDP              create connectionless UDP link.")
     print("                       UDP is the default if no connection type"
           " specified.")
@@ -501,7 +562,7 @@ def get_ip():
     finally:
         s.close()
     return IP
-# End get_pi()
+# End get_ip()
 
 
 def main():
@@ -514,9 +575,6 @@ def main():
     Repeat = 1
     rCode = False
     Speed=1
-
-    # Activate cross-platform sleep prevention
-    keep_alive.prevent_sleep()
 
     try:
         # Pick up all commandline options
@@ -573,7 +631,8 @@ def main():
             else:
                 fName = remainder[0]
             if (Host is None) & (mode == 'TCP'):
-                Host = get_ip()
+                Host = "0.0.0.0"  # Listen on all interfaces for TCP
+                #Host = get_ip()
 
             # End if
         except getopt.GetoptError as msg:
@@ -584,9 +643,13 @@ def main():
 
         # Main program
         if mode.upper() == 'UDP':
+            keep_alive.prevent_sleep()
             rCode = udp(Dest, IPport, fName, td, Repeat, Speed)
+            keep_alive.allow_sleep()
         elif mode.upper() == 'TCP':
+            keep_alive.prevent_sleep()
             rCode = tcp(Host, IPport, fName, td, Repeat, Speed)
+            keep_alive.allow_sleep()
         else:
             usage()
         # End if

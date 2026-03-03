@@ -11,6 +11,8 @@ Commandline options:
 
   -d IP_Address | --dest=IP_Address - UDP destination IP address.  Overrides primary address.
   -o IP_Address | --host=IP_Address - TCP server IP address. This must resolve to a valid IP address on this computer.
+      To accept connections from any device on the network, set Address to 0.0.0.0. This is the default if you do not
+      supply a TCP host address. 
       NOTE: The dest and host options are mutually exclusive
 
   -p # | --port=# - optional communication port number. Any valid port is accepted.
