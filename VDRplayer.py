@@ -631,7 +631,8 @@ def main():
             else:
                 fName = remainder[0]
             if (Host is None) & (mode == 'TCP'):
-                Host = get_ip()
+                Host = "0.0.0.0"  # Listen on all interfaces for TCP
+                #Host = get_ip()
 
             # End if
         except getopt.GetoptError as msg:
