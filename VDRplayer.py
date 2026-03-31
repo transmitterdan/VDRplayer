@@ -429,7 +429,11 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
         while True:
             # Wait for at least one client to be connected
             while True:
-                events = sel.select(timeout=0)
+                try:
+                    events = sel.select(timeout=0)
+                except Exception as ex:
+                    print("Error in selector:", ex)
+                    events = []
                 for key, mask in events:
                     if key.data is None:
                         accept_wrapper(key.fileobj)
@@ -471,7 +475,11 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
                         key.fileobj.close()
 
             # Service all connections (send data if needed)
-            events = sel.select(timeout=0)
+            try:
+                events = sel.select(timeout=0)
+            except Exception as ex:
+                print("Error in selector:", ex)
+                events = []
             for key, mask in events:
                 if key.data is not None:
                     try:
