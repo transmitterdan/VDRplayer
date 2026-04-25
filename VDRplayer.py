@@ -388,6 +388,8 @@ def service_connection(key, mask):
 # End service_connection()
 
 def tcp(Host, Port, fName, Delay, Repeat, Speed):
+    if Repeat == None or Repeat < 0:
+        Repeat = 1
     if Host is None:
         Host = socket.gethostbyname(socket.gethostname())
     Host = socket.gethostbyname(Host)
@@ -430,7 +432,7 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
             # Wait for at least one client to be connected
             while True:
                 try:
-                    events = sel.select(timeout=0)
+                    events = sel.select(timeout=TCP_CLIENT_POLL_INTERVAL)
                 except Exception as ex:
                     print("Error in selector:", ex)
                     events = []
