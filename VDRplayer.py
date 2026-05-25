@@ -51,7 +51,7 @@ except ImportError:
 assert sys.version_info >= (3, 5), "Must run in Python version 3.5 or above"
 
 # Sleep interval (seconds) for TCP client connection polling
-TCP_CLIENT_POLL_INTERVAL = 0.1
+TCP_CLIENT_POLL_INTERVAL = 0.001
 
 initialdelta = None
 starttime = None
@@ -443,7 +443,6 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
                 # This checks if any registered socket has associated client data (i.e., is a client connection)
                 if any(key.data is not None for key in sel.get_map().values()):
                     break
-                time.sleep(TCP_CLIENT_POLL_INTERVAL)  # Wait a bit before checking again
 
             mess = getNextMessage(f, Delay, Speed)
             count += 1
