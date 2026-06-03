@@ -395,10 +395,15 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
     Host = socket.gethostbyname(Host)
     if Port is None:
         Port = 2947
-    f = False
-    Server = False
+
+    server_address = (Host, Port)
     try:
-        server_address = (Host, Port)
+        (f, fLen) = openFile(fName)
+        if fLen < 1:
+            print(f"No messages to send in file {fName}, exiting.")
+            f.close()
+            return False
+
         Server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         Server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         
@@ -416,16 +421,15 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
             Server.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 8192)
         except (AttributeError, OSError):
             pass  # Not all systems support these options
-            
+        
         Server.bind(server_address)
         Server.listen(5)
         listening = Server.getsockname()
         Server.setblocking(False)
         sel.register(Server, selectors.EVENT_READ, data=None)
-        (f, length) = openFile(fName)
-        if length > 0:
-            print("Server at address: " + str(listening[0]) +
-                  " is listening on port: " + str(listening[1]))
+        print("Server at address: " + str(listening[0]) +
+                " is listening on port: " + str(listening[1]))
+
         count = 0
         pct = percentComplete(5.0)
         while True:
@@ -446,7 +450,10 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
 
             mess = getNextMessage(f, Delay, Speed)
             count += 1
-            pct.printPercent(count / length * 100)
+            if fLen == float('inf'):
+                pct.printPercent(0)  # Show progress for stdin input
+            else:
+                pct.printPercent(count / fLen * 100)
             if not mess:
                 print("")
                 Repeat -= 1
@@ -517,6 +524,7 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
             Server.close()
         if f:
             f.close()
+        return True
 # End tcp()
 
 
