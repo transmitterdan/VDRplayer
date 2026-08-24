@@ -149,12 +149,18 @@ class percentComplete:
             self.oldTime = newTime
 
 
-# Count number of lines in a file
+# Count number of lines in a file without disturbing the current file position.
 def lineCount(f):
+    try:
+        current_pos = f.tell()
+    except (AttributeError, OSError):
+        current_pos = 0
+
+    f.seek(0)
     i = -1
     for (i, l) in enumerate(f):
         pass
-    f.seek(0)
+    f.seek(current_pos)
     return i + 1
 
 
