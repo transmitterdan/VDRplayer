@@ -530,7 +530,7 @@ def tcp(Host, Port, fName, Delay, Repeat, Speed):
             Server.close()
         if f:
             f.close()
-        return True
+    return True
 # End tcp()
 
 
